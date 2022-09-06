@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+
+   <!-- Other meta items about the Template. Info can be read by suitable application. -->
+   <!-- None are needed to operate the template, only defined for possible future use. -->
+   <meta name="author" content="programmer name here">
+   <meta name="contact" content="programmer email">
+   <meta name="casparcg" content="Template - Static">  <!-- or "Template - Dynamic"            -->
+   <meta name="programme" content="programme name">    <!-- Programme genre that uses template -->
+   <meta name="designdate" content="Graphic Design first use month and year - e.g. July 2019">
+   <meta name="summary" content="Short Description of the template">
+   <meta name="resolution" content="Adaptive">
+   <meta name="scanformats" content="16:9 aspect ratio">
+
+   <title>CasparCG Template - Example Static 01</title>
+
+<!--
+   This CasparCG HTML template was created by <enter name here>. Contact <Enter email here>
+        
+   Reason for template/programme applications etc.
+
+   This template displays a lower third with just a name field and a designation
+   field, both shown on top of a simple colour strap.
+   Expected field names from CasparCG:
+      f0      Name to display
+      f1      Designation/Job Title
+
+   The template accepts user parameters wrapped in either XML or JSON.   
+-->
+
+<style type="text/css">
+/*
+   Define some "CSS Variables" values that may be needed in multiple CSS selectors. Embedded
+   Chromium in CasparCG is a webkit based browser, so some selectors must be stated in standard
+   and webkit format.
+*/
+:root {
+   --scrTop:0vh; --scrLeft:0vw; --scrWidth:100vw; --scrHeight:100vh;
+   --gfxContentEdge:10vw; --gfxContentWidth:80vw;
+   --strapColour:#b80000; --nameColour:#f0f0f0;
+}
+
+html {
+   Box-Sizing:border-box;           /* Use all available space */
+   backface-visibility: hidden;     /* Useful for 3d Manipulations */
+   -webkit-box-sizing: border-box;
+   -webkit-backface-visibility: hidden;
+   -webkit-transition: translate3d(0,0,0);
+}
+
+html, body {
+   Margin:0;
+   Padding:0;
+   Background:transparent;    /* Useful when useing a web browser during development */
+   Overflow:hidden;           /* Prevent scroll bars from minor overflows of content */
+   -webkit-font-smoothing:antialiased !important;
+}
+
+/* Selectors used by template field names information overlay */
+.tkey { font-weight:bold; color:yellow; }
+.tmpltData {
+   position: absolute; top: 0vh; height: 60vh; width: 100vw;
+   background-color: black; font-family: Arial, sans-serif;
+   font-size: 4.44vh; color: white; white-space:pre;
+}
+
+.hideMe { opacity:0; }
+
+.straptop {
+   position:absolute; top: 80vh; width:var(--scrWidth);
+}
+
+/* CSS Variables that define strap properties */
+:root { 
+   --strap1top: 0vh;
+   --strap1left: var(--gfxContentEdge);
+   --strap1width: var(--gfxContentWidth);
+   --strap1height: 10vh;
+}
+
+.strap01 {
+   position:absolute; top:var(--strap1top); left:var(--strap1left);
+   width:var(--strap1width); height:var(--strap1height);
+   background-color: var(--strapColour);
+}
+
+.f0_posn {
+   position:absolute; top:0vh; left:1vw;
+   width:var(--strap1width); height:var(--strap1height);
+}
+
+.f0_font {
+   font-family: Arial; font-weight: bold;
+   font-size: 4.6vh; font-kerning:normal; color:var(--nameColour);  
+   white-space:pre; text-align: left;
+    vertical-align: top;
+}
+
+.f1_posn {
+   position:absolute; top:5vh; left:1vw;
+   width:var(--strap1width); height:var(--strap1height);
+}
+
+.f1_font {
+   font-family: Arial; font-weight:normal; font-style: italic;
+   font-size: 3.6vh; font-kerning:normal; color:var(--nameColour);  
+   white-space:pre; text-align: left;
+}
+</style>
+
+<script type="text/javascript">
+'use strict';
+function init(){
+   // Insert code in this function to perform any required post-load initialisations.
+}
+
+// Module Wide Variables
+let dataCaspar = {}; // Used in parsing data from client,
+let updateCalled = false;
+
+/*
+   =====================================================================================
+   Support library functions to parse the data from a client, and do basic data inserts.
+*/
+
+/*
+   function escapeHtml(srcString) returns a string in which any HTML reserved characters
+   in the user srcString are replaced by their HTML equivalent. For example the left elbow
+   bracket '<' is converted to '&lt;'. This supports text containing a < to be displayed
+   by an element using code of the form:
+
+      let ptr = document.getElementById("f0");
+      ptr.innerHTML = escapeHtml(srcString);
+   
+   Alterately use the textContent mechanism that includes the HTML escape function:
+
+      let ptr = document.getElementById("f0");
+      ptr.textContent = "myString";
+*/
+function escapeHtml(unsafe) {
+   return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+/*
+   function XML2JSON(node) converts the XML string passed as a parameter "node" into a JSON
+   object containing the field names and their values. For example, if there are two fields
+   called 'f0' and 'f1' in the user "node" data, the returned JSON object takes the form:
+
+   { f0: 'Input value 1 from client', f1: 'input value 2 from client' }
+
+   This function needs no pre-knowledge of the number of fields nor their associated names.
+*/
+function XML2JSON(node) {
+   let data = {};   // result object
+   for (let k=0;k<node.length;k++)   {
+      let idCaspar = node[k].getAttribute("id");
+      let valCaspar = node[k].childNodes[0].getAttribute("value");
+      if (idCaspar != undefined && valCaspar != undefined) {
+         data[idCaspar] = valCaspar;
+      };
+   }
+   return data;
+}
+
+/*
+   function parseCaspar(str) takes the user data from the client wrapped in either XML
+   or stringified JSON, producing a globally accessible JSON object called 'dataCaspar'
+
+   When the user data is sent in an XML wrapped format, the user data is a string
+   that contains:
+
+   <templateData>
+      <componentData id="#idCaspar#">
+         <data id="text" value="#valCaspar#" />
+      </componentData>
+         :
+         :
+      <componentData id="#idCaspar#">
+         <data id="text" value="#valCaspar#" />
+      </componentData>
+   </templateData>
+
+   where #idCaspar# is the name of the user field, for example f0, and #valCaspar# is the
+   associated value for that field.
+
+   The string from the client does not contain any line breaks, and all reserved
+   characters are escaped by a backslash, thus a quotation mark (") is sent as
+   backslash+quote (\")
+
+   For JSON emitting capable clients (including custom clients) the structure of the
+   client string has the form:
+   
+   "{\"f0\":\"Value of f0\",\"f1\":\"Value of f1\"}"
+
+   As shown, escape characters are used to preserve the meaning of the outer quote marks
+   that wrap the user data.
+
+   function parseCaspar(str) uses the first character of the data string to determine the wrapping
+   process. If the first character is a left angle bracket (<) the string is XML wrapped.
+*/
+function parseCaspar(str)   {
+   let xmlDoc;
+   let parser;
+   if (str != undefined) { // Check the str parameter has a value, even if it is null
+      if (str.length != 0) {  // Check if the string is a null string (zero length)
+         if (str[0] === '<') {
+            // Convert XML wrapped data into JSON via conversion of text string into a 
+            // Document Object Model. 
+            if (window.DOMParser) {
+               parser = new DOMParser();
+               xmlDoc = parser.parseFromString(str,"text/xml");
+            }
+            dataCaspar = XML2JSON(xmlDoc.documentElement.childNodes);
+         }
+         else {
+            // Parse stringified JSON into a JSON object
+            dataCaspar = JSON.parse(str);
+         }
+      }
+   }
+}
+
+/*
+   function dataCaspar(objectName) looks for HTML elements whose id matches a user data field name.
+   If dataCaspar contains a field called f0 this function reads the DOM tree looking for an
+   element identifier that is of the form:
+
+      <div id="f0"></div> or <label id="f0"></label>
+
+   If the element exists the user data is inserted into the element after conversion
+   of reserved HTML characters such as '<' to their HTML description.
+*/
+function dataInsert(dataCaspar)   {
+   for (let idCaspar in dataCaspar) {
+      let idTemplate = document.getElementById(idCaspar);
+      if (idTemplate != undefined) {
+         idTemplate.innerHTML = escapeHtml(dataCaspar[idCaspar]);
+      }
+   }
+}
+
+/*
+   *****************************************
+   * CasparCG Standard Interface Functions *
+   *****************************************
+*/
+
+/*
+   function play() is called by the CasparCG template host module when a AMCP "CG PLAY" or
+   "CG ADD" with Autoplay flag set is received from the client. The purpose of the function
+   is to run any input animation required by the template design then pause the animation
+   'timeline' at the end of the input animation.
+   
+   Note: There are differences between server 2.0.7 and later versions.
+   =====
+
+   In version 2.0.7 the user data string from the client is passed directly to the play
+   function, so the function call is play(userString). The play function must parse the
+   string, then run any input animation.
+
+   Later versions of the server firstly call the update(userString) function, then call
+   the play() function without any user parameter. Supporting all versions of server
+   requires the play function to test for the presence of a string parameter, processing
+   as required.
+*/
+function play(str) {
+   if (str != undefined) {
+      update(str);
+   }
+
+   if (updateCalled) {
+      // User data has been loaded into the placeholders. We are ready to show the caption.
+      // No input animation in this boilerplate template code, so remove the hideMe class.
+      document.getElementById("strapholder").classList.remove("hideMe");
+   }
+}
+
+/*
+   function stop() is called when the user client sends a CG STOP command. This enables
+   an output animation to be run before the template is removed by the template host.
+
+   In this boilerplate code there is no output animation. The code hides the uppermost
+   element of the strap by adding a CSS class, thus hiding all children as well. It
+   checks if the template is running in CasparCG or in a conventional browser, calling
+   the appropriate window close function.
+*/
+function stop() {
+	document.getElementById("strapholder").classList.add("hideMe");
+
+   setTimeout( () => {
+      if (window.caspar) window.remove();
+      else window.close();
+   }, 800);
+}
+
+/*
+   function next() is called without parameters. It is used in templates that have multiple
+   timeline states to their animation. When next() is called, it causes the animation timeline
+   to re-start from current position, playing forward until the next pause point.
+*/
+function next() {
+   // Dummy function in this template.
+}
+
+/*
+   function update(userString) is called when the user client sends a play command (eg by pressing
+   the F2 key in the SVT client), and when the users sends a CG UPDATE command (SVT client F6 key).
+   This allows the instance data shown by the template to be updated without any 
+   'template remove - template start' disturbances.
+   
+   Where multiple user fields are present, the template must select the actions that happen when
+   only a sub-set of fields are updated. For example, in a news lower third there may be a two-line
+   information display - line 1 with a name, line 2 with a job or organisation description.
+   
+   How should the template process a change when just the job description changes? The answer is
+   specific to each deployment.
+
+   In this boilerplate template the update function implemnts a cut operation on all data fields
+   sent in the user data block.
+*/
+function update(str) {
+   if (str != undefined) {
+      parseCaspar(str);
+      if (dataCaspar != undefined) {
+         dataInsert(dataCaspar); 
+      }
+   }
+
+   updateCalled = true; // Record that update function has been called.
+}
+
+</script>
+
+</head>
+<body onload="init()">
+   <div id="strapholder" class="straptop hideMe">
+      <div id="myStrap" class="strap01">
+         <div id="f0" class="f0_font f0_posn"></div>
+         <div id="f1" class="f1_font f1_posn"></div>
+      </div>
+   </div>
+</body>
+
+</html>

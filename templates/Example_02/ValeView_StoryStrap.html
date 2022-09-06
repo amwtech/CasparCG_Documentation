@@ -1,0 +1,1257 @@
+<!doctype html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+
+   <!-- Other meta items about the Template. Info can be read by suitable application. -->
+   <!-- None are needed to operate the template, only defined for possible future use. -->
+   <meta name="author" content="programmer name here">
+   <meta name="contact" content="programmer email">
+   <meta name="casparcg" content="Template - Dynamic">  <!-- or "Template - Static"            -->
+   <meta name="programme" content="Vale Viewpoints">    <!-- Programme name that uses template -->
+   <meta name="designdate" content="July 2022">
+   <meta name="summary" content="Story Strap with hashtag">
+   <meta name="resolution" content="HD">
+   <meta name="scanformats" content="1080">
+
+   <title>Vale Viewpoints Dynamic Story Strap Template for CasparCG</title>
+
+<!--
+   This demonstration CasparCG HTML template was created by Andy Woodhouse.
+        
+   The target programme is made in 1080 line HD, and the programme design style manual
+   requires specific pixel sizes for the elements.
+
+   The template requires a bitmap image for the programme name in a sub folder of the
+   template. The image name is _img/Vale_Viewpoints_44L.png
+
+   This template displays a lower third with a name field, designation field, the programme graphic,
+   and an optional hashtag or email address.
+   
+   Expected parameters:
+      f0         Name to display
+      f1         Job tile or Designator
+
+   Optional parameters:
+      hashtag    The hashtag or email to display in lower right part of the strap
+        
+   The template can accept parameters as either XML data or as JSON data.
+
+   The animations use CSS to implement the actions, and Javascript promises to select the
+   timings and complete when the animation has happened. 
+   
+   A special function templatekeys(1) can be run via the CasparCG invoke process. On the 
+   first call is overlays a form describing the names of the fields it expects (f0 etc),
+   and the name of the image required to show the icon element of teh strap. A second
+   call removes the overlay.
+
+   This template makes extensive use of CSS variables that simplify reuse of properties in
+   multiple CSS definitions, and supporting update of the variable value from Javascript
+   code. If a future design changes sets a new resolution the changes in strap position etc.
+   are tightly contained in one CSS definition block.
+
+   The template is targetted for use in a CasparCG server HD 1080 line channel, but it can be
+   run in a browser, Chrome being the recommended type as this is closest to the renderer used
+   in the CasparCG HTML producer. The ability to use the browser means testing and development
+   can occur without needing a CaspaCG server. Various support functions are present to assist
+   the development and debug processes. The functions can be run via the console tab when a 
+   page is inspected in the browser (right click, select Inspect from context menu).
+
+   ToggleBg() is a function to shown a user supplied still image as the template background. This
+   allows the template display to be seen in the context of representative picture content. The
+   background image name is _img/GenericBgnd.jpg
+
+   A second call to ToggleBg() removes the background image from the displayed page.
+
+   DoPlay(id) function is called to run the play animation as if it were triggered in CasparCG.
+   The parameter n is an integer number that selects one of several text strings containing the
+   key names and the key values. This function should only be called once after the template
+   has loaded.
+
+   DoUpdate(m) function is called to update the information display shown by the earlier call
+   to DoPlay(n). The parameter m is an integer value that selects one of several update strings.
+   The various strings allow the update processing to be checked when all three fields are
+   changed, just one field is changed, two fields are changed etc. Do not call this function
+   until DoPlay(n) has been called.
+
+   DoStop() function is called to run the output animation sequence for the template.
+
+   The debug functions can be called when the template is used in a CasparCG server. They are
+   activated by the Invoke mechanism (eg key F7 in standard client).
+
+-->
+
+<style type="text/css">
+
+/* Define logical names for the typefaces used in the template */
+@font-face {
+   font-family: myName;
+   src: local('Times New Roman');
+}
+
+@font-face {
+   font-family: myDesig;
+   src: local('Arial Italic');
+}
+
+@font-face {
+   font-family: myHash;
+   src: local('Arial');
+}
+
+@font-face {
+   font-family: myProps;
+   src: local('Arial');
+}
+
+/* CSS variables to simplify modifying times and positions. Time values set by Javascript code */
+:root {
+   --blackbar-in-dur: 0ms;  --blackbar-in-delay: 0ms; --blackbar-out-dur: 0ms; --blackbar-out-delay: 0ms; 
+   --logo-in-dur: 0ms; --logo-in-delay: 0ms; --logo-out-dur: 0ms; --logo-out-delay: 0ms;
+   --textf0-in-dur: 0ms; --textf0-in-delay: 0ms; --textf0-out-dur: 0ms; --textf0-out-delay: 0ms;
+   --textf1-in-dur: 0ms; --textf1-in-delay: 0ms; --textf1-out-dur: 0ms; --textf1-out-delay: 0ms;
+   --hashtag-in-dur: 0ms; --hashtag-in-delay: 0ms; --hashtag-out-dur: 0ms; --hashtag-out-delay: 0ms;
+}
+
+:root {
+   --zeropx: 0px;
+   --straptop:818px;
+   --strapwidth:1920px;
+   --strapheight:172px;
+   --strapOpacity:0.5;
+   --gfxleft:288px;
+   --gfxright:calc(var(--strapwidth) - var(--gfxleft));
+   --gfxwidth:calc(var(--gfxright) - var(--gfxleft));
+   --logoboxwidth:400px; 
+   --hashclipleft:calc(var(--gfxleft) + var(--logoboxwidth));
+   --hashclipwidth:calc(var(--gfxwidth) - var(--logoboxwidth));
+   --hashclipheight:44px;
+   --hashcliptop:calc(var(--strapheight) - var(--hashclipheight)); 
+   --barheight:8px;
+   --f0fontheight:56px;
+   --f0cliptop:0px;
+   --f0clipheight:172px;
+   --f1fontheight:40px; 
+   --f1cliptop:72px;
+   --f1clipheight:100px;
+   --hashfontheight:30px;
+   --hashheight:46px; 
+   --hashwidth:0px; /* This variable is updated by the Javascript code */
+   --vvRed:#b80000;
+   --vvWhite:#f0f0f0;
+}
+
+html {
+   Box-Sizing: border-box;
+   backface-visibility: hidden;
+   transition: translate3d(0,0,0);
+   -webkit-box-sizing: border-box;
+   -webkit-backface-visibility: hidden;
+   -webkit-transition: translate3d(0,0,0);
+}
+
+html, body {
+   Margin: 0;
+   Padding: 0;
+   Background: transparent;
+   Overflow:hidden;
+   -webkit-font-smoothing:antialiased !important;
+}
+
+/* CSS definitions for template keys overlay - Display resolution independent */ 
+.tkey {
+   font-weight: bold; color: yellow;
+}
+
+.tmpltData {
+   position: absolute; top: 0px; height: 60vh; width: var(--strapwidth); background-color: black;
+   font-family: myProps; font-size: 4.44vh; white-space: pre; color: var(--vvWhite);
+}
+
+/* CSS definitions for caption elements */
+/* Entries ending _H position the element in a hidden position ready to animate onto the screen */
+/* Entries ending _S position the element in the final display position after animation */
+.straptop {
+   position:absolute; top:var(--straptop); width:var(--strapwidth);
+}
+
+.strapclip {
+   position:absolute; top:var(--zeropx); left:var(--zeropx); width:var(--strapwidth); height:var(--strapheight);
+   clip-path: inset(0% 0% 0% 0%);
+}
+.strap_H {
+   position:absolute; top:100%; left:var(--zeropx); width:var(--strapwidth); height:var(--strapheight);
+   background-color:black; opacity:var(--strapOpacity);
+}
+.strap_S {
+   position:absolute; top: 0%; left: 0; width: var(--strapwidth); height: var(--strapheight);
+   background-color: black; opacity:var(--strapOpacity);
+}
+
+.f0clip {
+   position:absolute; top:var(--f0cliptop); left:var(--gfxleft); width:var(--gfxwidth); height:var(--f0clipheight);
+   clip-path: inset(0% 0% 0% 0%); /* top right bottom left*/
+}
+.f0_font {
+   font-family: myName; font-size:var(--f0fontheight); font-kerning:normal;
+   color: var(--vvWhite);  white-space:pre; text-align:left;
+}
+.f0_H {position:absolute; top:100%; left:0%; height:var(--strapheight);}
+.f0_S {position:absolute; top:0%; left:0%; height:var(--strapheight);}
+
+.f1clip {
+   position:absolute; top:var(--f1cliptop); left:var(--gfxleft); width:var(--gfxwidth); height:var(--f1clipheight);
+   clip-path:inset(0% 0% 0% 0%);
+}
+.f1_font {
+   font-family: myDesig; font-size:var(--f1fontheight);font-kerning:normal;
+   color:var(--vvWhite); white-space:pre; text-align:left;
+}
+.f1_H {position:absolute; top:100%; left:0%; height:var(--f1clipheight); }
+.f1_S {position:absolute; top:0%; left:0%; height:var(--f1clipheight);}
+
+/* regionclip defines area in which regional logo can be seen */
+.mylogoclip {
+   position:absolute; top:var(--hashcliptop); left:var(--gfxleft); width:var(--logoboxwidth); height:var(--hashclipheight);
+   clip-path:inset(0% 0% 0% 0%);
+}
+
+.mylogo_H {position:absolute; top:-100%;}
+.mylogo_S {position:absolute; top:0%;}
+
+/* CSS definitions for the hashtag/email/twitter name area */
+.hashtag {
+   position:absolute; top:var(--hashcliptop); left:var(--hashclipleft); width:var(--hashclipwidth); height:var(--hashclipheight);
+}
+
+.hashclip {
+   position:absolute; top:0vh; left:0vw; width:var(--hashclipwidth); height:var(--hashclipheight);
+   clip-path: inset(0% 0% 0% 0%);
+}
+
+.hashgrp {
+   position: absolute; top:0vh; left:0vw; width:var(--hashclipwidth); height:var(--hashclipheight);
+}
+
+.red_bar { /* Definition for the bar left in shot when full red box shrinks away */
+   position:absolute; top:calc(var(--hashheight) - var(--barheight)); height: var(--barheight);
+   width:var(--hashwidth); right:0vw; background-color:var(--vvRed);
+}
+.red_bar_H {top:var(--hashheight);}
+.red_bar_S {top:calc(var(--hashheight) - var(--barheight));}
+
+.red_box {
+   position:absolute; top:0vh; right:0vw; width:var(--hashwidth); height:var(--hashclipheight);
+   background-color:var(--vvRed);
+}
+.red_box_S {top: 0%;}
+.red_box_H {top: 100%;}
+.red_box_Htop {top: -110%}
+
+.htext_box {
+   position:absolute; top:0vh; left:0vw; width:var(--hashclipwidth); height:var(--hashclipheight);
+}
+.htext_font {
+   font-family: myHash; font-size: var(--hashfontheight); font-kerning:normal;
+   color: var(--vvWhite); white-space: pre; text-align: right; letter-spacing: 0;
+}
+.htext_H {top: 100%;}
+.htext_S {top: 0%;}
+
+/* Animation control CSS definitions */
+/* animation properties=> name duration timing-function delay iteration-count direction fill-mode; */
+/* need standard and webkit support definitions */
+.mylogoin {
+   animation: regmovein  var(--logo-in-dur) ease var(--logo-in-delay) 1 forwards;
+   -webkit-animation: regmovein  var(--logo-in-dur) ease var(--logo-in-delay) 1 forwards;
+}
+@keyframes regmovein {
+   0%   {top: 100%;}
+   100% {top: 0%;}
+}
+.mylogoout {
+   animation: regmoveout  var(--logo-out-dur) ease var(--logo-out-delay) 1 forwards;
+   -webkit-animation: regmoveout  var(--logo-out-dur) ease var(--logo-out-delay) 1 forwards;
+}
+@keyframes regmoveout {
+   0%   {top: 0%;}
+   100% {top: 100%;}
+}
+
+.strapin {
+   animation: strapmovein  var(--blackbar-in-dur) ease var(--blackbar-in-delay) 1 forwards;
+   -webkit-animation: strapmovein  var(--blackbar-in-dur) ease var(--blackbar-in-delay) 1 forwards;
+}
+@keyframes strapmovein {
+   0%   {top: 100%;}
+   100% {top: 0%;}
+}
+.strapout {
+   animation: strapmoveout var(--blackbar-out-dur) ease var(--blackbar-out-delay) 1 forwards;
+   -webkit-animation: strapmoveout var(--blackbar-out-dur) ease var(--blackbar-out-delay) 1 forwards;
+}
+@keyframes strapmoveout {
+   0%   {top: 0%;}
+   100% {top: 100%;}
+}
+.f0in {
+   animation: f0movein  var(--textf0-in-dur) ease var(--textf0-in-delay) 1 forwards;
+   -webkit-animation: f0movein  var(--textf0-in-dur) ease var(--textf0-in-delay) 1 forwards;
+}
+@keyframes f0movein {
+   0%   {top: 100%;}
+   100% {top: 0%;}
+}
+
+.f0out {
+   animation: f0moveout  var(--textf0-out-dur) ease var(--textf0-out-delay) 1 forwards;
+   -webkit-animation: f0moveout  var(--textf0-out-dur) ease var(--textf0-out-delay) 1 forwards;
+}
+@keyframes f0moveout {
+   0%   {top: 0%;}
+   100% {top: 100%;}
+}
+.f1in {
+   animation: f1movein  var(--textf1-in-dur) ease var(--textf1-in-delay) 1 forwards;
+   -webkit-animation: f1movein  var(--textf1-in-dur) ease var(--textf1-in-delay) 1 forwards;
+}
+@keyframes f1movein {
+   0%   {top: 100%;}
+   100% {top: 0%;}
+}
+.f1out {
+   animation: f1moveout  var(--textf1-out-dur) ease var(--textf1-out-delay) 1 forwards;
+   -webkit-animation: f1moveout  var(--textf1-out-dur) ease var(--textf1-out-delay) 1 forwards;
+}
+@keyframes f1moveout {
+   0%   {top: 0%;}
+   100% {top: 100%;}
+}
+
+.hashgrpout {
+   animation: hashgroupmoveout var(--hashtag-out-dur) ease var(--hashtag-out-delay) 1 forwards;
+   -webkit-animation: hashgroupmoveout var(--hashtag-out-dur) ease var(--hashtag-out-delay) 1 forwards;
+}
+@keyframes hashgroupmoveout {
+   0%   {top: 0%;}
+   100% {top: -100%;}
+}
+.hashin {
+   animation: hashmovein  var(--hashtag-in-dur) ease var(--hashtag-in-delay) 1 forwards;
+   -webkit-animation: hashmovein  var(--hashtag-in-dur) ease var(--hashtag-in-delay) 1 forwards;
+}
+@keyframes hashmovein {
+   0%   {top: 100%;}
+   100% {top: 0%;}
+}
+.hashout {
+   animation: hashmoveout  var(--hashtag-out-dur) ease var(--hashtag-out-delay) 1 forwards;
+   -webkit-animation: hashmoveout  var(--hashtag-out-dur) ease var(--hashtag-out-delay) 1 forwards;
+}
+@keyframes hashmoveout {
+   0%   {top: 0%;}
+   100% {top: -100%;}
+}
+
+.redboxin {
+   animation: redboxmovein  var(--hashtag-in-dur) ease var(--hashtag-in-delay) 1 forwards;
+   -webkit-animation: redboxmovein  var(--hashtag-in-dur) ease var(--hashtag-in-delay) 1 forwards;
+}
+@keyframes redboxmovein {
+   0%   {top: 100%;}
+   45%  {top: 0%;}
+   70%  {top: 0%;}
+  100%  {top: 100%;} 
+}
+.red_box_out {
+   animation: redboxmoveout  var(--hashtag-out-dur) ease var(--hashtag-out-delay) 1 forwards;
+   -webkit-animation: redboxmoveout  var(--hashtag-out-dur) ease var(--hashtag-out-delay) 1 forwards;
+}
+@keyframes redboxmoveout {
+   0% {top: 0%;}
+   100% {top: -100%;}
+}
+
+.redbarin {
+   animation: redbarmovein var(--hashtag-in-dur) ease var(--hashtag-in-delay) 1 forwards;
+   -webkit-animation: redbarmovein  var(--hashtag-in-dur) ease var(--hashtag-in-delay) 1 forwards;
+}
+@keyframes redbarmovein {
+   0% {top: var(--hashheight);}
+   100% {top: calc(var(--hashheight) - var(--barheight))}
+}
+
+/* End of CSS definitions */
+</style>
+
+<script type="text/javascript">
+'use strict';
+
+// Module Global Values
+let redBarWidth = 0;    // Will hold maximum width of a redbar
+let playCalled = false; // flag to see if the play() function has been invoked
+let strapDisplayed = false; // Set true if the strap is displayed on template output
+let dataCaspar = {};    // Holds the parsed keys and data from client.
+
+// Data object for the displayable keys, with storage for various flags
+let capt = {
+   f0: {now: "", next: "", changed: false, nowlen: 0, nextlen: 0}, 
+   f1: {now: "", next: "", changed: false, nowlen: 0, nextlen: 0}, 
+   hashtag:{now: "", next: "", changed: false, nowlen: 0, nextlen: 0}
+};
+
+// object trTime holds the full entry and exit transition times and delays for the animations
+// All values are milliseconds.
+const trTime = {
+   blackbarInDur: 760,
+   blackbarInDelay: 40,
+   blackbarOutDur: 960,
+   blackbarOutDelay: 0,
+   logoInDur: 560,
+   logoInDelay: 120,
+   logoOutDur: 520,
+   logoOutDelay: 240,
+   textf0InDur: 520,
+   textf0InDelay: 280,
+   textf0OutDur: 440,
+   textf0OutDelay: 40,
+   textf1InDur: 720,
+   textf1InDelay: 400,
+   textf1OutDur: 320,
+   textf1OutDelay: 40,
+   hashtagInDur: 1000,
+   hashtagInDelay: 120,
+   hashtagOutDur: 560, 
+   hashtagOutDelay: 240,
+   textf0f1Updf0Delay: 100,
+   textf0f1Updf1Delay: 100,
+   textf0f1HtUpdf0Delay: 0,
+   textf0f1HtUpdf1Delay: 100,
+   textf0f1HtUpdHtDelay: 200,
+   noDelay: 0
+};
+
+// -------------------------------------------------------------------------------------------------
+// function init() is called when the html document has been fully loaded. It's purpose is to set up
+// the properties of all required <div> elements, and install initial global values into the various
+// CSS variables used in the template.
+function init(){
+   // Load logo
+   document.getElementById("mylogo").innerHTML = '<img src="_img/Vale_Viewpoints_44L.png">';
+
+   playCalled = false;  // Set true by the play() function.
+
+   // Get the maximum pixel width of the redbar under the hashtag
+   let ele = document.getElementById("strapholder");
+   let r = getComputedStyle(ele).getPropertyValue("--hashclipwidth");
+   r = r.trim();  // Remove leading and trailing whitespace
+   redBarWidth = parseInt(r, 10);   
+}
+
+// **************************
+// getTextWidth(newString) returns the pixel width of the text string 'newString'.
+// This is used to compute the length for the hastag red box. It uses an invisible
+// span that has the font properties of the hastag text as a compute element
+function getTextWidth(newString) {
+    let myRuler = document.getElementById("ruler");
+   
+    myRuler.innerHTML = newString;   // Copy text into the ruler
+    return Math.ceil(myRuler.offsetWidth);
+}
+
+// Parameters myDur and myDelay are in milliseconds (Integer values only!)
+function anim_f0_In(myDur, myDelay) {
+   return new Promise(resolve => {
+      let myTime = 30 + myDur + myDelay;
+      
+      // Nothing on display, immediately resolve the promise and return
+      if (capt.f0.nowlen === 0) {   
+         resolve('f0_I');
+         return;
+      }
+      const cssVarSet = document.querySelector(':root').style;
+      cssVarSet.setProperty("--textf0-in-dur", myDur + 'ms');
+      cssVarSet.setProperty("--textf0-in-delay", myDelay + 'ms');
+      let myItem = document.getElementById("f0").classList;
+      myItem.value = "f0_font f0_H f0in";
+      setTimeout(() => {
+            myItem.value = "f0_font f0_S";
+            resolve('f0_I');
+      }, myTime);
+   });
+}
+
+function anim_f0_Out(myDur, myDelay) {
+   return new Promise(resolve => {
+      let myTime = 30 + myDur + myDelay;
+
+      if (capt.f0.nowlen === 0) {
+         resolve('f0_O');
+         return;
+      }
+      const cssVarSet = document.querySelector(':root').style;
+      cssVarSet.setProperty("--textf0-out-dur", myDur+'ms');
+      cssVarSet.setProperty("--textf0-out-delay", myDelay+'ms');
+      let myItem = document.getElementById("f0").classList;
+      myItem.value = "f0_font f0_S f0out";
+      setTimeout(() => {
+         myItem.value = "f0_font f0_H";
+         resolve('f0_O');
+      }, myTime);
+   });   
+}
+
+function anim_f1_In(myDur, myDelay) {
+   return new Promise(resolve => {
+      let myTime = 30 + myDur + myDelay;
+
+      if (capt.f1.nowlen === 0) {
+         resolve('f1_I');
+         return;
+      }
+      const cssVarSet = document.querySelector(':root').style;
+      cssVarSet.setProperty("--textf1-in-dur", myDur + 'ms');
+      cssVarSet.setProperty("--textf1-in-delay", myDelay + 'ms');
+      let myItem = document.getElementById("f1").classList;
+      myItem.value = "f1_font f1_H f1in";
+      setTimeout(() => {
+         myItem.value = "f1_font f1_S";
+         resolve('f1_I');
+      }, myTime);
+   });
+}
+
+function anim_f1_Out(myDur, myDelay) {
+   return new Promise(resolve => {
+      let myTime = 30 + myDur + myDelay; 
+      
+      if (capt.f1.nowlen === 0) {
+         resolve('f1_O');
+         return;
+      }
+      const cssVarSet = document.querySelector(':root').style;
+      cssVarSet.setProperty("--textf1-out-dur", myDur+'ms');
+      cssVarSet.setProperty("--textf1-out-delay", myDelay+'ms');
+      let myItem = document.getElementById("f1").classList;
+      myItem.value = "f1_font f1_S f1out"; 
+      setTimeout(() => {
+         myItem.value = "f1_font f1_H";
+         resolve('f1_O');
+      }, myTime);
+   });   
+}
+
+function anim_Logo_In(myDur, myDelay) {
+   return new Promise(resolve => {
+      let myTime = 30 + myDur + myDelay;
+      
+      const cssVarSet = document.querySelector(':root').style;
+      cssVarSet.setProperty("--logo-in-dur", myDur + 'ms');
+      cssVarSet.setProperty("--logo-in-delay", myDelay + 'ms');
+      let myItem = document.getElementById("mylogo").classList;
+      myItem.value = "mylogo_H mylogoin";
+      setTimeout(() => {
+         myItem.value = "mylogo_S";
+         resolve('L_I');
+      }, myTime);
+   });
+}
+
+function anim_Logo_Out(myDur, myDelay) {
+   return new Promise(resolve => {
+      let myTime = 30 + myDur + myDelay;
+
+      const cssVarSet = document.querySelector(':root').style;
+      cssVarSet.setProperty("--logo-out-dur", myDur+'ms');
+      cssVarSet.setProperty("--logo-out-delay", myDelay+'ms');
+      let myItem = document.getElementById("mylogo").classList;
+      myItem.value = "mylogo_S mylogoout";
+      setTimeout(() => {
+         myItem.value = "mylogo_H";
+         resolve('L_O');
+      }, myTime);
+   });   
+}
+
+function anim_Hash_In(myDur, myDelay) {
+   return new Promise(resolve => {
+      let myTime = 30 + myDur + myDelay;
+
+      if (capt.hashtag.nowlen === 0) {
+         resolve('h_I');
+         return;
+      }
+      const cssVarSet = document.querySelector(':root').style;
+      cssVarSet.setProperty("--hashtag-in-dur", myDur + 'ms');
+      cssVarSet.setProperty("--hashtag-in-delay", myDelay + 'ms');
+      let myItem1 = document.getElementById("htext_box").classList;
+      let myItem2 = document.getElementById("red_box").classList;
+      let myItem3 = document.getElementById("red_bar").classList;
+      myItem1.value = "htext_box htext_H hashin";
+      myItem2.value = "red_box red_box_H redboxin";
+      myItem3.value = "red_bar red_bar_H redbarin";
+      setTimeout(() => {
+         myItem1.value = "htext_box htext_S";
+         myItem2.value = "red_box red_box_Htop";
+         myItem3.value = "red_bar";
+         resolve('h_I');
+      }, myTime);
+   });
+}
+
+function anim_Hash_Out(myDur, myDelay) {
+   return new Promise(resolve => {
+      let myTime = 30 + myDur + myDelay;
+      
+      if (capt.hashtag.nowlen === 0) {
+         resolve('h_0');
+         return;
+      }
+      const cssVarSet = document.querySelector(':root').style;
+      cssVarSet.setProperty("--hashtag-out-dur", myDur+'ms');
+      cssVarSet.setProperty("--hashtag-out-delay", myDelay+'ms');
+      let myItem1 = document.getElementById("htext_box").classList;
+      let myItem2 = document.getElementById("red_bar").classList;
+      let myItem3 = document.getElementById("red_box").classList;
+      let myItem4 = document.getElementById("hashgrp").classList;
+      myItem4.value = "hashgrp hashgrpout";
+      setTimeout(() => {
+         myItem1.value = "htext_box htext_H";
+         myItem2.value = "red_bar red_bar_H";
+         myItem3.value = "redb_H";
+         myItem4.value = "hashgrp"
+         resolve('h_0');
+      }, myTime);
+   });   
+}
+
+function anim_Strap_In(myDur, myDelay) {
+   return new Promise(resolve => {
+      let myTime = 30 + myDur + myDelay;
+      
+      const cssVarSet = document.querySelector(':root').style;
+      cssVarSet.setProperty("--blackbar-in-dur", myDur + 'ms');
+      cssVarSet.setProperty("--blackbar-in-delay", myDelay + 'ms');
+      let myItem = document.getElementById("strapbgnd").classList;
+      myItem.value = "strap_H strapin";
+      setTimeout(() => {
+         myItem.value = "strap_S";
+         resolve('b_I');
+      }, myTime);
+   });
+}
+
+function anim_Strap_Out(myDur, myDelay) {
+   return new Promise(resolve => {
+      let myTime = 30 + myDur + myDelay;
+
+      const cssVarSet = document.querySelector(':root').style;
+      cssVarSet.setProperty("--blackbar-out-dur", myDur+'ms');
+      cssVarSet.setProperty("--blackbar-out-delay", myDelay+'ms');
+      let myItem = document.getElementById("strapbgnd").classList;
+      myItem.value = "strap_S strapout";  // Drive the animate
+      setTimeout(() => {
+         myItem.value = "strap_H";
+         resolve('b_O');
+      }, myTime);
+   });
+}
+
+// Animate out the f0 field, set new content in the field, then animate in the new content
+async function swap_f0() {
+   let myField = document.getElementById("f0");
+
+   const aout = await anim_f0_Out(trTime.textf0OutDur, trTime.noDelay);
+   myField.innerHTML = escapeHtml(capt.f0.next);
+   capt.f0.now = capt.f0.next;
+   capt.f0.nowlen = capt.f0.nextlen;
+   capt.f0.changed = false;
+   const ain = await anim_f0_In(trTime.textf0InDur, trTime.noDelay);
+}
+
+// Animate out the f1 field, set new content in the field, then animate on the new content
+async function swap_f1() { 
+   let myField = document.getElementById("f1");
+
+   const aout = await anim_f1_Out(trTime.textf1OutDur, trTime.noDelay);
+   myField.innerHTML = escapeHtml(capt.f1.next);
+   capt.f1.now = capt.f1.next;
+   capt.f1.nowlen = capt.f1.nextlen;
+   capt.f1.changed = false;
+   const ain = await anim_f1_In(trTime.textf1InDur, trTime.noDelay);
+}
+
+// Animate out f0 and f1, update contents, animate in new f0 and f1
+async function swap_f0_f1() {
+   let myField1 = document.getElementById("f0");
+   let myField2 = document.getElementById("f1");
+
+   const p1 = anim_f0_Out(trTime.textf0OutDur, trTime.textf0f1Updf0Delay);
+   const p2 = anim_f1_Out(trTime.textf1OutDur, trTime.noDelay);
+   const aout = await Promise.all([p1, p2]);
+   // Update f0 and f1 contents
+   myField1.innerHTML = escapeHtml(capt.f0.next);
+   capt.f0.now = capt.f0.next;
+   capt.f0.nowlen = capt.f0.nextlen;
+   capt.f0.changed = false;
+   myField2.innerHTML = escapeHtml(capt.f1.next);
+   capt.f1.now = capt.f1.next;
+   capt.f1.nowlen = capt.f1.nextlen;
+   capt.f1.changed = false;
+   // Now animate all in
+   const p4 = anim_f0_In(trTime.textf0InDur, trTime.noDelay);
+   const p5 = anim_f1_In(trTime.textf1InDur, trTime.textf0f1Updf1Delay);
+   const ain = await Promise.all([p4, p5]);
+}
+
+// Animate out the hashtag field, set new content in the field, then animate on the new content
+async function swap_hashtag() {
+   let myField = document.getElementById("htext");
+
+   const aout = await anim_Hash_Out(trTime.hashtagOutDur, trTime.noDelay);
+   myField.innerHTML = escapeHtml(capt.hashtag.next);
+   capt.hashtag.now = capt.hashtag.next;
+   capt.hashtag.nowlen = capt.hashtag.nextlen;
+   capt.hashtag.changed = false;
+   setRedBarLength();
+   const ain = await anim_Hash_In(trTime.hashtagInDur, trTime.noDelay);
+}
+
+async function swap_all() {
+   let myField1 = document.getElementById("f0");
+   let myField2 = document.getElementById("f1");
+   let myField3 = document.getElementById("htext");
+
+   const p1 = anim_f0_Out(trTime.textf0OutDur, trTime.noDelay);
+   const p2 = anim_f1_Out(trTime.textf1OutDur, trTime.textf0f1HtUpdf1Delay);
+   const p3 = anim_Hash_Out(trTime.hashtagOutDur, trTime.textf0f1HtUpdHtDelay);
+   const aout = await Promise.all([p1, p2, p3]);
+   // Update all fields
+   myField1.innerHTML = escapeHtml(capt.f0.next);
+   capt.f0.now = capt.f0.next;
+   capt.f0.nowlen = capt.f0.nextlen;
+   capt.f0.changed = false;
+   myField2.innerHTML = escapeHtml(capt.f1.next);
+   capt.f1.now = capt.f1.next;
+   capt.f1.nowlen = capt.f1.nextlen;
+   capt.f1.changed = false;
+   myField3.innerHTML = escapeHtml(capt.hashtag.next);
+   capt.hashtag.now = capt.hashtag.next;
+   capt.hashtag.nowlen = capt.hashtag.nextlen;
+   capt.hashtag.changed = false;
+   setRedBarLength();
+   // Now animate all in
+   const p4 = anim_f0_In(trTime.textf0InDur, trTime.noDelay);
+   const p5 = anim_f1_In(trTime.textf1InDur, trTime.textf0f1HtUpdf1Delay);
+   const p6 = anim_Hash_In(trTime.hashtagInDur, trTime.textf0f1HtUpdHtDelay);
+   const ain = await Promise.all([p4, p5, p6]);
+}
+
+async function swap_f0_hash() {
+   let myField1 = document.getElementById("f0");
+   let myField2 = document.getElementById("htext");
+
+   const p1 = anim_f0_Out(trTime.textf0OutDur, trTime.noDelay);
+   const p2 = anim_Hash_Out(trTime.hashtagOutDur, trTime.textf0f1HtUpdHtDelay);
+   const aout = await Promise.all([p1, p2]);
+   // Update all fields
+   myField1.innerHTML = escapeHtml(capt.f0.next);
+   capt.f0.now = capt.f0.next;
+   capt.f0.nowlen = capt.f0.nextlen;
+   capt.f0.changed = false;
+   myField2.innerHTML = escapeHtml(capt.hashtag.next);
+   capt.hashtag.now = capt.hashtag.next;
+   capt.hashtag.nowlen = capt.hashtag.nextlen;
+   capt.hashtag.changed = false;
+   setRedBarLength();
+   // Now animate all in
+   const p4 = anim_f0_In(trTime.textf0InDur, trTime.noDelay);
+   const p5 = anim_Hash_In(trTime.hashtagInDur, trTime.textf0f1HtUpdHtDelay);
+   const ain = await Promise.all([p4, p5]);   
+}
+
+async function swap_f1_hash() {
+   let myField1 = document.getElementById("f1");
+   let myField2 = document.getElementById("htext");
+
+   const p1 = anim_f1_Out(trTime.textf1OutDur, trTime.noDelay);
+   const p2 = anim_Hash_Out(trTime.hashtagOutDur, trTime.textf0f1HtUpdHtDelay);
+   const aout = await Promise.all([p1, p2]);
+   // Update all fields
+   myField1.innerHTML = escapeHtml(capt.f1.next);
+   capt.f1.now = capt.f1.next;
+   capt.f1.nowlen = capt.f1.nextlen;
+   capt.f1.changed = false;
+   myField2.innerHTML = escapeHtml(capt.hashtag.next);
+   capt.hashtag.now = capt.hashtag.next;
+   capt.hashtag.nowlen = capt.hashtag.nextlen;
+   capt.hashtag.changed = false;
+   setRedBarLength();
+   // Now animate all in
+   const p4 = anim_f1_In(trTime.textf1InDur, trTime.noDelay);
+   const p5 = anim_Hash_In(trTime.hashtagInDur, trTime.textf0f1HtUpdHtDelay);
+   const ain = await Promise.all([p4, p5]);
+}
+
+async function animateAllIn() {
+   const p1 = anim_Strap_In(trTime.blackbarInDur, trTime.blackbarInDelay);
+   const p2 = anim_Logo_In(trTime.logoInDur, trTime.logoInDelay);
+   const p3 = anim_f0_In(trTime.textf0InDur, trTime.textf0InDelay);
+   const p4 = anim_f1_In(trTime.textf1InDur, trTime.textf1InDelay);
+   const p5 = anim_Hash_In(trTime.hashtagInDur, trTime.hashtagInDelay);
+   const aIn = await Promise.all([p1, p2, p3, p4, p5]);
+}
+
+async function animateAllOut() {
+   const p1 = anim_Strap_Out(trTime.blackbarOutDur, trTime.blackbarOutDelay);
+   const p2 = anim_Logo_Out(trTime.logoOutDur, trTime.logoOutDelay);
+   const p3 = anim_f0_Out(trTime.textf0OutDur, trTime.textf0OutDelay);
+   const p4 = anim_f1_Out(trTime.textf1OutDur, trTime.textf1OutDelay);
+   const p5 = anim_Hash_Out(trTime.hashtagOutDur, trTime.hashtagOutDelay);
+   const aOut = await Promise.all([p1, p2, p3, p4, p5]);
+}
+
+// function displayStrap() is invoked when the template has been played, but a subsequent update()
+// has had all fields at "", causing strap display to animate off screen. displayStrap() animates
+// all elements onto the screen when one or more fields becomes non-blank in a later update().
+function displayStrap() {
+   capt.f0.now = capt.f0.next;
+   capt.f0.nowlen = capt.f0.nextlen;
+   capt.f1.now = capt.f1.next;
+   capt.f1.nowlen = capt.f1.nextlen;
+   capt.hashtag.now = capt.hashtag.next;
+   capt.hashtag.nowlen = capt.hashtag.nextlen;
+   // Insert updated values
+   document.getElementById("f0").innerHTML = escapeHtml(capt.f0.now);
+   document.getElementById("f1").innerHTML = escapeHtml(capt.f1.now);
+   document.getElementById("htext").innerHTML = escapeHtml(capt.hashtag.now);
+   setRedBarLength();
+   animateAllIn();
+   strapDisplayed = true;
+}
+
+/*
+   ********************************************************************
+   * Next 4 Definitions below here are the CasparCG support functions *
+   ********************************************************************
+*/
+
+/*
+   Structure of data sent from CasparCG can have one of two formats - XML (all clients/servers) or JSON (newer client options)
+   For XML the data structire is shown below. Each line ends with a "carriage return line feed" (\r\n):
+      <templateData>
+         <componentData id="#idCaspar#">
+            <data id="text" value="#valCaspar#" />
+         </componentData>
+         :
+         :
+         <componentData id="#idCaspar#">
+            <data id="text" value="#valCaspar#" />
+         </componentData>
+      </templateData>
+
+   For JSON capable clients (including custom clients) the structure of the string is of the form:
+   {"f0":"Value of f0","f1":"Value of f1"}
+*/
+
+// Replace characters that could become a problem if left as is
+function escapeHtml(unsafe) {
+   return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+// Make the XML templateData message into a more simple key:value object
+function XML2JSON(node)   {
+   let data = {};   // resulting object
+   for (let k=0;k<node.length;k++)   {
+      let idCaspar = node[k].getAttribute("id");
+      let valCaspar = node[k].childNodes[0].getAttribute("value");
+      if ( idCaspar != undefined && valCaspar != undefined)   { data[idCaspar] = valCaspar; };
+   }
+
+   return data;
+}
+
+// Parse data from client. Detects XML or JSON presentation by looking at first character of message.
+// XML templateData converts to an XML object. Object then converted into JSON friendly mode
+function parseCaspar(str)   {
+   let xmlDoc;
+   let parser;
+   if (str != undefined) {
+      if (str.length != 0) {
+         if (str[0] === '<') {
+            if (window.DOMParser)   {
+               parser=new DOMParser();
+               xmlDoc=parser.parseFromString(str,"text/xml");
+            }
+            dataCaspar = XML2JSON(xmlDoc.documentElement.childNodes);
+         }
+         else {
+            dataCaspar = JSON.parse(str);
+         }
+      }
+   }
+}
+
+// Main function to insert data. Not used in this template
+function dataInsert(dataCaspar)   {
+   for (let idCaspar in dataCaspar) {
+      let idTemplate = document.getElementById(idCaspar);
+      if (idTemplate != undefined)   { idTemplate.innerHTML = escapeHtml(dataCaspar[idCaspar]); }
+   }
+}
+
+// **************************
+// Service function to set values from "dataCaspar" object into "capt" object.
+// Actions for first call of update (part of playing a template) differ
+// when a change of content update is called.
+function setElement(keyName) {
+   if (keyName in dataCaspar) {
+      if (playCalled) {
+         capt[keyName].next = dataCaspar[keyName];
+         capt[keyName].changed = (capt[keyName].now != capt[keyName].next) ;
+         capt[keyName].nextlen = capt[keyName].next.length;
+      }
+      else {
+         capt[keyName].now = dataCaspar[keyName];
+         capt[keyName].next = "";
+         capt[keyName].changed = (capt[keyName].now != capt[keyName].next) ;
+         capt[keyName].nowlen = capt[keyName].now.length;
+         capt[keyName].nextlen = 0;
+      }
+   } else {
+      // Key name not in new data
+      if (playCalled) {
+         capt[keyName].next = "";
+         capt[keyName].changed = (capt[keyName].now != capt[keyName].next) ;
+         capt[keyName].nextlen = 0;
+      } else {
+         // pre-play() call to update with key not in user sent data
+         capt[keyName].now = "";
+         capt[keyName].next = "";
+         capt[keyName].changed = false ;
+         capt[keyName].nowlen = 0;
+         capt[keyName].nextlen = 0;
+      }
+   }
+}
+
+// **************************
+// This function computes the left end clip point of the hastag red box and underline
+function setRedBarLength() {
+   let htw = getTextWidth(document.getElementById("htext").innerHTML);
+   document.getElementById("hashtag").style.setProperty("--hashwidth", htw+'px');
+}
+
+// function getMaxOutDuration() computes the worst case animate out duration.
+function getMaxOutDuration() {
+   let outtimes = {strap:0, logo:0, textf0:0, textf1:0, hash:0};
+   let mt = 0;
+
+   outtimes.strap = trTime.blackbarOutDur + trTime.blackbarOutDelay;
+   outtimes.logo = trTime.logoOutDur + trTime.logoOutDelay;
+   outtimes.textf0 = trTime.textf0OutDur + trTime.textf0OutDelay;
+   outtimes.textf1 = trTime.textf1OutDur + trTime.textf1OutDelay;
+   outtimes.hash = trTime.hashtagOutDur + trTime.hashtagOutDelay;
+
+   for (let idx in outtimes) {
+      if (outtimes[idx] > mt) mt = outtimes[idx];
+   }
+
+   return mt;
+}
+
+/*
+   *************************************************************************
+   * CasparCG Standard Interface Functions - play() stop() next() update() *
+   *************************************************************************
+*/
+
+// Insert data from CasparCg client when activated. Server 2.0.x only passes a string to play.
+// Later versions of the server make two calls in sequence: update(str); play();
+function play(str) {
+   if (str != undefined) {
+      update(str);
+   }
+
+   // If there is at least 1 element field present, call strap input animante function.
+   if ((capt.f0.nowlen != 0) || (capt.f1.nowlen != 0) || (capt.hashtag.nowlen != 0)) {
+      animateAllIn();
+      strapDisplayed = true;
+   }
+
+   playCalled = true;
+}
+
+// **************************
+// Call for a stop from CasparCG client. Take all strap elements off screen.
+function stop () {
+   let myDelay = getMaxOutDuration() + 160;
+
+   // If the template properties are on display - remove them
+   if (templateProps) templatekeys(1);
+
+   if (strapDisplayed) {
+      animateAllOut();
+      strapDisplayed = false;
+   }
+   
+   setTimeout( () => {
+      if (window.caspar) window.remove();  // CasparCG server uses this to remove the content
+      else window.close();   // Browser uses this to remove content.
+   }, myDelay);
+}
+
+// **************************
+// This template does not have a timeline sequence operation - so next() is a dummy process
+function next() {
+
+}
+
+// **************************
+// function update(str) is called when template data received from CasparCG client. There is no way to
+// avoid the complex nature of this function as it must accomodate one or all key fields updating and must
+// manage events if there is no data provided.
+function update(str) {
+
+   if ((str === undefined) || (str === "")) return;   // No string = no work to do.
+   
+   parseCaspar(str); // Parse the string into JSON
+   // Look for f0, f1 and hashtag fields. Process for the new values. Results are stored in
+   // data object "capt" - in capt.<element>.next  
+   setElement('f0');
+   setElement('f1');
+   setElement('hashtag');
+
+   if (!playCalled) {
+      // Set values into the <div> fields ready for animation to occur, even if they are empty.
+      document.getElementById("f0").innerHTML = escapeHtml(capt.f0.now);
+      document.getElementById("f1").innerHTML = escapeHtml(capt.f1.now);
+      document.getElementById("htext").innerHTML = escapeHtml(capt.hashtag.now);
+      setRedBarLength();
+      return;
+   }
+
+   // Getting to _all_ the subsequent code in this function requires function play() has been called.
+   if ((capt.f0.nextlen === 0) && (capt.f1.nextlen === 0) && (capt.hashtag.nextlen === 0)) {
+      if ((capt.f0.nowlen != 0) || (capt.f1.nowlen != 0) || (capt.hashtag.nowlen != 0)) {
+         // Animate out existing caption
+         animateAllOut();
+         strapDisplayed = false;
+         return;
+      }
+   }
+
+   // Categorise the elements that have changed to enable correct sub-set of actions to be triggered.
+   // Weightings: f0 changed = 4, f1 changed = 2, hashtag changed = 1
+   let evt = 0;
+   evt += capt.hashtag.changed ? 1 : 0;
+   evt += capt.f1.changed ? 2 : 0;
+   evt += capt.f0.changed ? 4 : 0;
+
+   // Use the evt value to select the process action code
+   switch (evt) {
+      case 0:
+         // No fields have changed - do not update display
+         break;
+
+      case 1:
+         // Only the hashtag has updated. Actions differ for no strap displayed and strap displayed.
+         if (strapDisplayed) swap_hashtag(); else displayStrap();
+         break;
+
+      case 2:
+         // Only f1 has changed.
+         if (strapDisplayed) swap_f1(); else displayStrap();
+         break;
+
+      case 3:
+         // f1 and hashtag have updated. f0 and hashtag unchanged.
+         if (strapDisplayed) swap_f1_hash(); else displayStrap();
+         break;
+
+      case 4:
+         // f0 has updated, f1 and hashtag unchanged
+         if (strapDisplayed) swap_f0(); else displayStrap();
+         break;
+
+      case 5:
+         // f0 and hashtag have updated, f1 unchanged
+         if (strapDisplayed) swap_f0_hash(); else displayStrap();
+         break;
+
+      case 6:
+         // f0 and f1 have updated, hastag unchanged
+         if (strapDisplayed) swap_f0_f1(); else displayStrap();
+         break;
+
+      case 7:
+         // All three elements have updated
+         if (strapDisplayed) swap_all(); else displayStrap();
+         break;
+   }
+
+}  // END of function update()
+
+// *************************************************************************************************************
+// Invoked function to show template property names. Enter the string "templatekeys(1)" into the invoke box,
+// then press the F7 key to show the list of keys used and their function.
+let templateProps = false;
+
+function templatekeys(val) {
+   if (val === undefined) return;
+   if (val === null) return;
+   if (typeof val === 'number')
+   {
+      if (val === 1) {
+         if (templateProps) {
+            let tplt = document.getElementById('templateinfo');
+            if (tplt != undefined) tplt.remove();
+            templateProps = false;
+         } else {
+            // Display the template key namess
+            let infodiv = document.createElement('div');
+            infodiv.id = 'templateinfo';
+            infodiv.classList.value = "tmpltData";
+            infodiv.innerHTML = " Template Keys:"
+            infodiv.innerHTML += "<br> Key name: <span class='tkey'>f0</span>   - Name";
+            infodiv.innerHTML += "<br> Key name: <span class='tkey'>f1</span>   - Designator/job";
+            infodiv.innerHTML += "<br><br> Optional keys";
+            infodiv.innerHTML += "<br> Key name: <span class='tkey'>hashtag</span>   - hashtag or email";
+            infodiv.innerHTML += "<br><br> Uses logo: '_img/Vale_Viewpoints_44L.png'"
+            document.body.appendChild(infodiv);
+            templateProps = true;
+         }
+      }
+   }
+}
+
+/* ==================== */
+/* DEBUG ONLY FUNCTIONS */
+/* ==================== */
+
+let bgOnShow = false;
+function ToggleBg() {
+   if (bgOnShow === false) {
+      let newEl = document.createElement('img');
+      newEl.id = 'myBgnd';
+      newEl.src = '_img/GenericBgnd.jpg';
+      window.document.body.insertBefore(newEl, window.document.body.firstChild);
+      bgOnShow = true;
+   }
+   else {
+      let myBg = document.getElementById('myBgnd');
+      if (myBg != undefined) {
+         myBg.remove(myBg.firstChild);
+      }
+      bgOnShow = false;
+   }
+}
+
+function DoPlay(testNum)
+{
+   let inputfromclient = "<templateData><componentData id=\"f0\"><data id=\"text\" value=\"Name Field here\"/></componentData><componentData id=\"f1\"><data id=\"text\" value=\"Designator Text here\"/></componentData><componentData id=\"hashtag\"><data id=\"text\" value=\"someone@somename\"/></componentData></templateData>";
+
+   if ((testNum === undefined) || (testNum === null)) testNum=0;
+   switch (testNum) {
+      case 1:
+         inputfromclient = JSON.stringify({f0:"Pat Harvester", f1:"Market Gardener", hashtag:"pat@abcmarkets.co.uk"});
+         break;
+
+      case 2:
+         inputfromclient = JSON.stringify({f0:"Jason Fig", f1:"Plum Farmer", hashtag:"jason@valeplums.com"});
+         break;
+   }
+   play(inputfromclient);
+}
+
+function DoStop() {
+   stop();
+}
+
+// DoUpdate(integer: n) allows template testing with various pre-defined text strings. The valid values for n are set by the template designer
+function DoUpdate(capNum) {
+   // String used when capNum is not in range.
+   let inputfromclient = "<templateData><componentData id=\"f0\"><data id=\"text\" value=\"Updated Name Entry\"/></componentData><componentData id=\"f1\"><data id=\"text\" value=\"Updated Designator Text\"/></componentData><componentData id=\"hashtag\"><data id=\"text\" value=\"someoneelse@somename\"/></componentData></templateData>";
+
+   if ((capNum === undefined) || (capNum === null)) capNum = 0;
+
+   switch (capNum) {
+      case 1:  // No hashtag value. Used after play with a hashtag checks hashtag animates out
+         inputfromclient = JSON.stringify({f0:"Janet Brown", f1:"Actress", hashtag:""});
+         break;
+      
+      case 2:  // Hashtag present. Used after case 1 checks hashtag only animation
+         inputfromclient = JSON.stringify({f0:"David Cameron", f1:"Former UK Prime Minister", hashtag:"therealdc@davecam.me.uk"});
+         break;
+      
+      case 3:
+         inputfromclient = JSON.stringify({f0:"Timpsons", f1:"Shoe Repair Chain", hashtag:"#soleandheal"});
+         break;
+      
+      case 4:
+         inputfromclient = JSON.stringify({f0:"J.K Rowling", f1:"Author", hashtag:"@therealjkr"});
+         break;
+
+      case 5:
+         inputfromclient = JSON.stringify({f0:"Waitrose", f1:"Supermarket Chain", hashtag:""});
+         break;
+   
+      case 6:
+         inputfromclient = JSON.stringify({f0:"Agatha Christie", f1:"Author", hashtag:"@mysterywriter"});
+         break;
+
+      case 7:
+         inputfromclient = JSON.stringify({f0:"Agatha Christie", f1:"Pseudonyms include Mary Westmacott", hashtag:"@mysterywriter"});
+         break;
+
+      case 8:
+         inputfromclient = JSON.stringify({f0:"", f1:"", hashtag:""});
+         break;
+
+      default:
+      break;   
+   }
+   update(inputfromclient);
+}
+
+/* End of debug functions */
+
+</script>
+
+</head>
+
+<body onload="init()">
+   <!-- span ruler is used to measure width of hashtag/email text. Invisible on display -->
+   <span id="ruler" class="htext_font" style="visibility: hidden;" ></span>
+
+	<!-- Definitions for the 2 Line Strap -->
+   <div id="strapholder" class="straptop">
+      <div id="strapclip" class="strapclip">
+         <div id="strapbgnd" class="strap_H" ></div>
+      </div>
+      <div id="f0clip" class="f0clip">
+	      <div id="f0" class="f0_font f0_H"></div>
+      </div>
+      <div id="f1clip" class="f1clip">
+         <div id="f1" class="f1_font f1_H"></div>
+      </div>
+      <div id="myregion" class="mylogoclip">
+         <div id="mylogo" class="mylogo_H"></div>
+      </div>
+
+      <!-- hashtag/email/twitter info -->
+      <div id="hashtag" class="hashtag">
+         <div id="hashclip" class="hashclip">
+            <div id="hashgrp" class="hashgrp">
+               <div id="red_bar" class="red_bar red_bar_H"></div>
+               <div id="red_box" class="red_box red_box_H"></div>
+               <div id="htext_box" class="htext_box htext_H">
+                  <div id="htext" class="htext_font"></div>
+               </div>
+            </div>
+         </div>
+      </div>
+   </div>
+</body>
+
+</html>
