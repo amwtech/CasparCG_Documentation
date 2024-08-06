@@ -1,0 +1,2091 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <!-- The following meta tags are for future use by an external Media Asset System -->
+    <meta name="ccg_author"         content="Andy Woodhouse">
+    <meta name="ccg_contact"        content="andy@amwtech.co.uk">
+    <meta name="ccg_casparcg"       content="Template - Data Driven">
+    <meta name="ccg_programme"      content="Culture Programme">
+    <meta name="ccg_designdate"     content="May 2024">
+    <meta name="ccg_summary"        content="Camden Town Underground Arrivals board">
+    <meta name="ccg_resolution"     content="HD">
+    <meta name="ccg_scanformats"    content="1080i/25, 1080p/25, 1080p/50">
+    <meta name="ccg_min_server_version" content="2.1.0">
+
+    <title>Camden Town Underground Train Arrivals</title>
+
+<!-- 
+    SOFTWARE LICENCE  (MIT)
+    =======================
+
+    Copyright (c) 2024 Andy Woodhouse
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software 
+    and associated documentation files (the "Software"), to deal in the Software without 
+    restriction, including without limitation the rights to use, copy, modify, merge, publish, 
+    distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the 
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or 
+    substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING 
+    BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
+    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+-->    
+
+<!--
+    INTRODUCTION
+    ============
+
+    This example CasparCG template displays estimated arrival timings for trains passing through 
+    Camden Town Underground station in London. The display resolution is fixed at 1920 x 1080.
+    The CasparCG output displays full-screen on an in-vision monitor built into the studio set. 
+
+    The estimated times of arrival for each of the routes through Camden Town are obtained from 
+    the Transport for London (TfL) Unified Open Data API. Full details of the API are available 
+    from https://api.tfl.gov.uk/
+    
+    Transport for London encourages users to create innovative ways to provide up-to-date travel 
+    information for passengers, possibly requiring data collection from several API endpoints.
+    High data volume applications should be registered with TfL who provide an application key
+    to enable the high volume transfers. Simpler, low data volume, applications can access the 
+    API without using an application key. This template uses the simple access method because 
+    it makes just three data requests per minute, each request returning a maximum of a few 
+    kilobytes.
+    
+    TfL aim to make source data updates every 30 seconds, but there are occasions when the 
+    update rate is slower. This template uses the reported estimated time of arrival (ETA) of 
+    each train returned from the TfL servers plus a local computer clock counter that updates  
+    the ETA values between polls of the server..
+
+    This code release is primarily intended to support CasparCG users who wish to learn more
+    about how dynamic data sources can be incorporated in HTML templates. As such, there are 
+    many comments in the code that would not be included in a standard production release.
+    
+    The template is provided "As Is" and has no warranties for how third-parties use the
+    code (see MIT Licence above). The author has not found any documented geographic-based 
+    API access limitations, but there may be some not seen by the author as he is in the
+    same country as the data source.
+
+    This HTML code can be used:
+        a) In CasparCG server as a template. This requires server version is V2.1.0 or newer.
+        b) In CasparCG server as an HTML page (PLAY 1-10 [HTTP] "http://...")
+        c) In a Computer browser as an HTML page (Tested with Firefox, Chrome, Safari)
+
+    There are control options for display layout (single route through station or all routes), 
+    the display mode (updating automatically, single update and freeze, or static data), the
+    typeface used on the display, and if the clock shows current time of day whilst showing
+    current train arrival data.
+
+    The control parameters use key:value pairs delivered to the code as either instance data 
+    sent to the template as part of the CG PLAY or CG UPDATE commands, or as query properties 
+    appended to the core URL when running as the CasparCG full page or browser page.
+    
+    The available information display modes are:
+
+        a) 'dynamic' => A display that updates every second, 
+        b) 'single'  => A single grab of the projected times of arrival taken at the instant
+                        the single mode is requested,
+        c) 'static'  => A fixed set of data.
+
+    Modes (b) and (c) are useful when the programme director does not want changing data in the 
+    background of camera shots.
+
+    Two display layout modes are supported. In layout mode 1 the train data is displayed in four 
+    screen quadrants - one quadrant per route through the station. Each quadrant is identified in 
+    Javascript code and CSS by the compass direction of the quadrant relative to the centre of the 
+    train data display - nwSeg (north west), neSeg (north east), swSeg (south west), 
+    seSeg (south east).
+    
+       nwSeg       neSeg
+               X
+       swSeg       seSeg
+    
+    In layout mode 2 the train data is displayed for a single route. The displayed route is 
+    selected by a key:value sent to the template or page.
+
+    Mandatory Input parameters:
+    ---------------------------
+    NONE    Template operation defaults to full dynamic displays in "all routes" display mode.
+
+    Optional input values:
+    ---------------------=
+    Key name    Values
+
+    mode        'dynamic' | 'single' | 'static'
+      
+                dynamic     Underground train data is continually read from the TfL API service. 
+                            Estimated time of arrival for each train updates between data requests
+                            using the computer clock.
+                single      Runs a single data acquire process and does not update predictions.
+                static      Always shows the same data - equivalent to having PNG grab of the 
+                            live system output.
+
+    display     'all' | 'edgware' | 'barnet' | 'charing cross' | 'bank' | '0' | '1' | '2' | '3' | '4' 
+
+    usefont     A number, minimum 1, used to select the typeface used in the display fields. The
+                standard distribution has three typefaces available - Arial, Dot Matrix Regular
+                and London Underground Regular. Adding further typefaces is a simple process.
+
+    startat     '10:15:00' or '10:15' or 'off' 
+                Set the time of day displayed when the template or browser display starts. The 
+                train data is 'live', but allowing an offset clock may assist some programme 
+                applications of the display. A property value of 'off' returns clock display 
+                to current time-of-day.
+
+    A request to enter 'dynamic' mode is ignored if the system is already operating in dynamic 
+    display mode. If 'single' mode is triggered when 'single' mode is active the code runs 
+    a single data acquire process to update the displayed data.
+
+    The 'display' key sets the layout of the display to four-quadrant mode or a single route. 
+    The numeric values 1 to 4 are aliases for the four quadrants where 1 is Edgware, 
+    2 is Barnet, 3 is Southbound via Charing Cross, 4 is Southbound via Bank. Value 0 or 'all' 
+    show all four quadrants.
+
+    The template accepts control key-value pairs wrapped in either XML or stringified JSON.
+
+    There are three Javascript functions that can be invoked in CasparCG:
+
+        1)  templatekeys(1), 
+        2)  log_to_window(1), 
+        3)  etaseconds(1):
+
+    templatekeys(1) toggles an overlay display showing key names and supported values. It is 
+    intended as a quick method to remind a graphics operator of the available option names. 
+    The function must include the value 1 as the only parameter. This requirement for a value 
+    minimises chance of displaying the list by accident during programme transmission.
+
+    log_to_window(1) toggles use of a one line display at the bottom of the screen display. This 
+    allows diagnostic data to be shown on screen to aid in any debugging operations when the
+    Javascript console is not available to view.
+
+    etaseconds(1) toggles the ETA display column between times in seconds and times in minutes.
+    Mostly provided to check the operation of the once per second ETA data.
+
+    Typeface Options:
+    -----------------
+    The distributed version of the template uses Arial typeface as the default font for the train 
+    data and clock display. This was chosen as the default as it should be avilable on any
+    computer running CasparCG server.
+
+    It is possible to use other typefaces by editing or adding to the @font-face CSS statements. 
+    One possible typeface is a dot matrix style display, used on many of the London Underground 
+    information displays in both concourse areas and on platform displays.
+
+    The template author has tried several free-to-use dot matrix style fonts. Variations in the
+    X-heights of the fonts can cause overflows of the text boxes unless size adjustments for
+    each display typeface are implemented. The typefaces used and their sizes are all defined in 
+    CSS variables and Javascript arrays enabling modifications via Javascript code.
+
+    When using a standard browser the font locations for any dot matrix style typefaces SHALL be 
+    stated as an explicit url even if they are part of the computer's font directory. This url 
+    based approach is a consequence of the attempts to stop fingerprinting identification of 
+    individuals after the use of cookies was constrained. Locking out local typefaces avoids 
+    recognition of corporate custom typefaces. Chrome browser did not, as at August 2024, 
+    apply this restriction.
+
+    Dot Matrix Typeface Sources:
+    ----------------------------
+    Always check the licencing model for the typeface. At the time this template was created
+    all typefaces in the list below had easy to understand open licences.
+    
+    1) London Underground <Weight>
+    Weights - Bold, Heavy, Medium, Regular
+    Licence - SIL Open Font
+    https://github.com/petykowski/London-Underground-Dot-Matrix-Typeface/tree/master/font
+
+    2) Dot Matrix
+    Weights: Regular, Bold, Bold Tall
+    Licence: SIL Open Font License
+    https://github.com/DanielHartUK/Dot-Matrix-Typeface
+
+    3) Raleway Dots
+    Weights: 400 (Light)
+    Licence: SIL Open Font Licence
+    https://fonts.google.com - search for Raleway
+    NOTE: Shows as very dim lettering as each dot has a very small area
+
+    4) BPDots
+    Weights: Light Regular Bold in multiple small variations of display
+    Licence: Creative Commons Attribution-No Derivative Works v3.00
+    https://www.fontsquirrel.com/fonts/BPdots
+
+    This template stores alternate typefaces font files in the same folder as the template code.
+
+    When adding an extra typeface add the font file to thetemplate folder. Create a new
+    @font-face definition, naming the extra-typeface as a combination of 'Railway' plus a two-digit
+    number - for example 'Railway04'. Create a new Javascript array called baseFont04Sizes 
+    (same digits added to RailwayXX). Maintain an unbroken sequence of number values. The template 
+    uses the count of typefaces listed in an array to check any display typeface number is a valid 
+    value. Finally add the new array name to the end of the array of base fonts:
+
+    Before: 
+    const baseFontSizeTable = [baseFont01Sizes, baseFont02Sizes, baseFont03Sizes];
+    
+    After:  
+    const baseFontSizeTable = [baseFont01Sizes, baseFont02Sizes, baseFont03Sizes, baseFont04Sizes];
+
+    When used in a browser or as a full page in CasparCG PLAY instruction the options are 
+    entered as part of the URL. If we assume the code is available as a local file and we
+    want the Barnet route shown in Dot Matrix typeface the URL takes the form:
+
+        d:/ccg/fullpage/CamdenTown.http?usefont=2&display=barnet
+
+
+    Train Information Updates
+    =========================
+    The template queries two data sources on the TfL API service - the train predictions for 
+    Camden Station and the status of the Northern Line (Good Service, Delays etc). Both data
+    sources are fetched by an HTTP GET operation wrapped up in a Javascript fetch() function. 
+
+    Train  data uses URL https://api.tfl.gov.uk/line/northern/arrivals/940GZZLUCTN
+    Status data uses URL https://api.tfl.gov.uk/line/northern/status
+
+    The 940GZZLUCTN is an alias for Camden Town Station.
+
+    Both data read operations use asynchronous read processes (await fetch(...)). When the fetch 
+    returns data it saves that data to a global variable and sets a global flag indicating data
+    availability.
+
+    There is an interval timer that ticks 4 times per second. One of these ticks will occur during 
+    the first quarter of a second. On that tick:
+    1) the clock time-of-day value increments, 
+    2) the ETA projected arrival time is updated updating the screen train data displays
+    3) The data available flags are polled. When data becomes available processing is activated 
+       to parse the new data. A seconds count is set that triggers the next train data poll. The 
+       train arrival data issues a request 30 seconds after the previous request. 
+    4) The Northern line current status is queried at the start of each minute.
+
+    The data requests include a network time out of 15.5 seconds. If the request times out 
+    the relevant flags are reset ready for the timer to issue a new poll request.
+    
+-->
+
+<style type="text/css">
+
+/* Provide @font-face definitions for all typefaces that we want to use */
+/* Always define a simple, local, fallback typeface.                    */
+@font-face {
+    font-family: "Railway01";
+        src: 
+        local("Arial"),
+        local(sans-serif);
+    font-weight: normal; font-style: normal;
+}
+
+@font-face {
+    font-family: "Railway02";
+        src: 
+        url("Dot Matrix Regular.ttf"),
+        local("Times New Roman");
+    font-weight: normal; font-style: normal;
+}
+
+@font-face {
+    font-family: "Railway03";
+        src: 
+        url("London Underground Regular.ttf"),
+        local("Times New Roman");
+    font-weight: normal; font-style: normal;
+}
+
+/* CSS global access variables declared as part of :root allowing Javascipt to simply 
+   update the values at run time. */
+:root {
+   --scrTop:0px; --scrLeft:0px; --scrWidth:1920px; --scrHeight:1080px;
+   --amber: #f0e010;
+   --backing: #202020;
+   --dataBg: #000000;
+   --myTextPad: 5px;
+   --titleTextHeight: 60px;
+   --traincolumn: #00f000;
+   --statusInfoColour: '#f0f0f0';
+   --screenTitleFontHeight: 60px;
+   --routeTitleFontHeight: 40px;
+   --trainItemFontHeight: 18px;
+   --panel1TrainItemFontHeight: 42px;
+   --statusHlFontHeight: 32px;
+   --statusDataFontHeight: 24px;
+   --acknowledgeFontHeight: 16px;
+   --screenTitleBoxTop: 56px; 
+   --screenTitleBoxLeft: 110px;
+   --screenTitleBoxWidth: 1295px;
+   --screenTitleBoxHeight: 90px;
+   --clockBoxTop: var(--screenTitleBoxTop);
+   --clockBoxLeft: 1510px;
+   --clockBoxWidth: 300px;
+   --clockBoxHeight: 70px;
+   --segTitleBoxHeight: 50px;
+   --segTitleBoxTop01: 162px;
+   --segTitleBoxTop02: 500px;
+   --segTitleBoxLeft01: 110px;
+   --segTitleBoxLeft02: 990px;
+   --segTitleBoxWidth: 814px;
+   --segTop01: 267px;
+   --segTop02: 605px;
+   --segLeft01: 110px;
+   --segLeft02: 990px;
+   --segWidth: 819px;
+   --segHeight: 210px;
+   --statusHeadlineBoxTop: 830px;
+   --statusHeadlineBoxLeft: 110px;
+   --statusHeadlineBoxWidth: 1700px;
+   --statusHeadlineBoxHeight: 50px;
+   --statusIdBoxLeft: 5px;
+   --statusIdBoxWidth: 135px;
+   --statusHlLeft: 150px;
+   --statusInfoTop: 890px;
+   --statusInfoLeft: 110px;
+   --statusInfoWidth: 1690px;
+   --statusInfoHeight: 90px;
+   --statusInfoLineHeight: 30px;
+   --tflAckTop: 990px;
+   --tflAckLeft: 1160px;
+   --tflAckWidth: 650px;
+   --tflAckHeight: 30px;
+   --colNameGroupTop01: 225px;
+   --colNameGroupTop02: 563px;
+   --colNameGroupLeft01: 110px;
+   --colNameGroupLeft02: 990px;
+   --nameAndDataHeight: 30px;
+   --trainDataLeftCol0: 0px;
+   --trainDataLeftCol1: 30px;
+   --trainDataLeftCol2: 275px;
+   --trainDataLeftCol3: 360px;
+   --trainDataLeftCol4: 410px;
+   --trainDataWidthCol0: 16px;
+   --trainDataWidthCol1: 230px;
+   --trainDataWidthCol2: 70px;
+   --trainDataWidthCol3: 37px;
+   --trainDataWidthCol4: 405px;
+   --trainDataTopRow0: calc(0 * 42px);
+   --trainDataTopRow1: calc(1 * 42px);
+   --trainDataTopRow2: calc(2 * 42px);
+   --trainDataTopRow3: calc(3 * 42px);
+   --trainDataTopRow4: calc(4 * 42px);
+   --trainDataLeft: 0px;
+   --panel1Top: 150px;
+   --panel1Left: 0px;
+   --panel1Height: 660px;
+   --panel1Width: var(--scrWidth);
+   --panel1TitleTop: 12px;
+   --panel1TitleLeft: 110px;
+   --panel1TitleWidth: 814px;
+   --panel1TitleHeight: 50px;
+   --panel1ColLabelTop: 90px;
+   --panel1ColLabelLeft: 110px;
+   --panel1ColLabelWidth: 814px;
+   --panel1ColLabelHeight: 60px;
+   --panel1Seg0Top: 180px;
+   --panel1Seg0Left: 110px;
+   --panel1Seg0Width: 1695px;
+   --panel1Seg0Height: 460px;
+   --panel1Row0Top: calc(0 * 100px);
+   --panel1Row1Top: calc(1 * 100px);
+   --panel1Row2Top: calc(2 * 100px);
+   --panel1Row3Top: calc(3 * 100px);
+   --panel1Row4Top: calc(4 * 100px);
+   --panel1TrainDataTop: 0px;
+   --panel1TrainDataLeftCol0: 0px;
+   --panel1TrainDataLeftCol1: 60px;
+   --panel1TrainDataLeftCol2: 550px;
+   --panel1TrainDataLeftCol3: 720px;
+   --panel1TrainDataLeftCol4: 820px;
+   --panel1TrainDataWidthCol0: 32px; 
+   --panel1TrainDataWidthCol1: 460px; 
+   --panel1TrainDataWidthCol2: 140px; 
+   --panel1TrainDataWidthCol3: 74px; 
+   --panel1TrainDataWidthCol4: 870px;
+   --panel1TrainDataHeight: 60px;
+}
+
+html {
+   Box-Sizing:border-box;
+   backface-visibility: hidden;
+   -webkit-box-sizing: border-box;
+   -webkit-backface-visibility: hidden;
+}
+
+html, body {
+   Margin:0;
+   Padding:0;
+   Background: transparent;
+   Overflow:hidden;
+   -webkit-font-smoothing:antialiased !important;	 /* Force aliasing for fonts */
+}
+
+.baseFont01 { font-family: Railway01; }
+.baseFont02 { font-family: Railway02; }
+.baseFont03 { font-family: Railway03; }
+
+
+/* CSS definitions for the panel that displays key names and recognised values. */
+.templateKeyValues {
+   position:absolute; top: 0px; height: 80vh; width: 80vw; background-color: black;
+   font-family: Arial, sans-serif; font-size: 2.4vh; white-space: pre; color: white;
+   opacity: 0; visibility: hidden;
+}
+
+.showKeyValues { visibility: visible; opacity: 0.85}
+
+bigger { font-size: 4vh; }
+k { font-weight: bold; color: yellow; }
+v { font-weight: bold; color: rgb(0, 230, 0); }
+
+table {
+    border-collapse: collapse; border: none; font-family: Arial, sans-serif; font-size: 2.4vh;
+}
+
+th,td {
+  padding: 0vw 5vw;
+}
+
+/* CSS definitions for the primary information displays. */
+.backgroundbox {
+    background-color: var(--backing); position: absolute;
+    top: var(--scrTop); left: var(--scrLeft); width: var(--scrWidth); height: var(--scrHeight); 
+}
+
+.title {
+    position: absolute; top: var(--screenTitleBoxTop); left: var(--screenTitleBoxLeft);  width: var(--screenTitleBoxWidth); 
+    height: var(--screenTitleBoxHeight); line-height: var(--screenTitleBoxHeight); background-color: var(--dataBg); 
+    font-size: var(--screenTitleFontHeight); padding-left: var(--myTextPad); text-align: left; white-space: pre; 
+    color:var(--amber);
+}
+
+.clocktime {
+    position: absolute; top: var(--clockBoxTop); left: var(--clockBoxLeft); width: var(--clockBoxWidth); 
+    height: var(--clockBoxHeight); line-height: var(--clockBoxHeight); background-color: var(--dataBg);
+    font-size: var(--screenTitleFontHeight); text-align: center; color: var(--amber);
+}
+
+.segTitleFont01 {
+    font-size: var(--routeTitleFontHeight); line-height: var(--segTitleBoxHeight); 
+    text-align: left; padding-left: var(--myTextPad); color: white;
+}
+
+.nw_title{
+    position: absolute; top: var(--segTitleBoxTop01); left: var(--segTitleBoxLeft01); 
+    width: var(--segTitleBoxWidth); height: var(--segTitleBoxHeight); 
+    background-color: var(--dataBg);
+}
+
+.ne_title{
+    position: absolute; top: var(--segTitleBoxTop01); left: var(--segTitleBoxLeft02); 
+    width: var(--segTitleBoxWidth); height: var(--segTitleBoxHeight); 
+    background-color: var(--dataBg);
+}
+
+.sw_title{
+    position: absolute; top: var(--segTitleBoxTop02); left: var(--segTitleBoxLeft01); 
+    width: var(--segTitleBoxWidth); height: var(--segTitleBoxHeight); 
+    background-color: var(--dataBg);
+}
+
+.se_title{
+    position: absolute; top: var(--segTitleBoxTop02); left: var(--segTitleBoxLeft02); 
+    width: var(--segTitleBoxWidth); height: var(--segTitleBoxHeight); 
+    background-color: var(--dataBg);
+}
+
+.status_headline_box {
+    position: absolute; top: var(--statusHeadlineBoxTop); left: var(--statusHeadlineBoxLeft); 
+    width: var(--statusHeadlineBoxWidth); height: var(--statusHeadlineBoxHeight); 
+    background-color: var(--dataBg);
+}
+
+.status_id {
+    position: absolute; left: var(--statusIdBoxLeft); width: var(--statusIdBoxWidth); 
+    font-size: var(--statusHlFontHeight); line-height: var(--statusHeadlineBoxHeight); 
+    color: white; text-align: left;
+}
+
+.status_hl {
+    position: absolute; left: var(--statusHlLeft); font-size: var(--statusHlFontHeight); 
+    line-height: var(--statusHeadlineBoxHeight); color: var(--statusInfoColour); text-align: left;
+}
+
+.status_information {
+    position: absolute; top: var(--statusInfoTop); left: var(--statusInfoLeft); 
+    width: var(--statusInfoWidth); height: var(--statusInfoHeight); background-color: var(--dataBg);
+    font-size: var(--statusDataFontHeight); line-height: var(--statusInfoLineHeight);
+    text-align: left; padding-left: var(--myTextPad); padding-right: var(--myTextPad); color: #f0f0f0; overflow: hidden;
+}
+
+.acknowledge {
+    position: absolute; top: var(--tflAckTop); left: var(--tflAckLeft); width: var(--tflAckWidth); 
+    height: var(--tflAckHeight); line-height: var(--tflAckHeight);
+    font-size: var(--acknowledgeFontHeight); text-align: right; color: white;
+}
+
+
+.logDisplay {
+    /* Used for console log printout when only have access to CasparCG output on a monitor. */
+    position: absolute; top: 1030px; left: 110px; width: 1690px; height:30px; line-height:20px;
+    font-family: Arial; font-size: 16px; text-align: left; color: red;
+}
+
+.columnLabels {
+    font-size: var(--trainItemFontHeight); text-align: left; color: var(--traincolumn);
+}
+
+.nw_col_name_group {
+    position: absolute; top: var(--colNameGroupTop01); left: var(--colNameGroupLeft01); 
+    height: var(--nameAndDataHeight); line-height: var(--nameAndDataHeight);
+}
+
+.ne_col_name_group {
+    position: absolute; top: var(--colNameGroupTop01); left: var(--colNameGroupLeft02); 
+    height: var(--nameAndDataHeight); line-height: var(--nameAndDataHeight);
+}
+
+.sw_col_name_group {
+    position: absolute; top: var(--colNameGroupTop02); left: var(--colNameGroupLeft01); 
+    height: var(--nameAndDataHeight); line-height: var(--nameAndDataHeight);
+}
+
+.se_col_name_group {
+    position: absolute; top: var(--colNameGroupTop02); left: var(--colNameGroupLeft02); 
+    height: var(--nameAndDataHeight); line-height: var(--nameAndDataHeight);
+}
+
+.train_hl_01 {
+    position: absolute; top: 0px; left: var(--trainDataLeftCol1); width: var(--trainDataWidthCol1); 
+    background-color: var(--dataBg); padding-left: var(--myTextPad);
+}
+
+.train_hl_02 {
+    position: absolute; top: 0px; left: var(--trainDataLeftCol2); width: var(--trainDataWidthCol2); 
+    background-color: var(--dataBg); padding-left: var(--myTextPad);
+}
+
+.train_hl_03 {
+    position: absolute; top: 0px; left: var(--trainDataLeftCol3); width: var(--trainDataWidthCol3); 
+    background-color: var(--dataBg); padding-left: var(--myTextPad);
+}
+
+.train_hl_04 {
+    position: absolute; top: 0px; left: var(--trainDataLeftCol4); width: var(--trainDataWidthCol4); 
+    background-color: var(--dataBg); padding-left: var(--myTextPad);
+}
+
+.seg_n_font { font-size: var(--trainItemFontHeight); text-align: left; color: var(--amber); }
+
+.seg0 { position: absolute; top: var(--segTop01); left: var(--segLeft01); width: var(--segWidth); height: var(--segHeight); line-height: var(--segHeight); }
+.seg1 { position: absolute; top: var(--segTop01); left: var(--segLeft02); width: var(--segWidth); height: var(--segHeight); line-height: var(--segHeight); }
+.seg2 { position: absolute; top: var(--segTop02); left: var(--segLeft01); width: var(--segWidth); height: var(--segHeight); line-height: var(--segHeight); }
+.seg3 { position: absolute; top: var(--segTop02); left: var(--segLeft02); width: var(--segWidth); height: var(--segHeight); line-height: var(--segHeight); }
+
+.row0 { position: absolute; top: var(--trainDataTopRow0); left: var(--trainDataLeft) }
+.row1 { position: absolute; top: var(--trainDataTopRow1); left: var(--trainDataLeft) }
+.row2 { position: absolute; top: var(--trainDataTopRow2); left: var(--trainDataLeft) }
+.row3 { position: absolute; top: var(--trainDataTopRow3); left: var(--trainDataLeft) }
+.row4 { position: absolute; top: var(--trainDataTopRow4); left: var(--trainDataLeft) }
+
+.td_col0{
+    position: absolute; top: 0px; left: var(--trainDataLeftCol0); width: var(--trainDataWidthCol0); 
+    height: var(--nameAndDataHeight); line-height: var(--nameAndDataHeight);
+    padding-left: var(--myTextPad); background-color: var(--dataBg); overflow: hidden;
+}
+
+.td_col1{
+    position: absolute; top: 0px; left: var(--trainDataLeftCol1); width: var(--trainDataWidthCol1); 
+    height: var(--nameAndDataHeight); line-height: var(--nameAndDataHeight);
+    padding-left: var(--myTextPad); background-color: var(--dataBg); overflow: hidden;
+}
+
+.td_col2{
+    position: absolute; top: 0px; left: var(--trainDataLeftCol2); width: var(--trainDataWidthCol2); 
+    height: var(--nameAndDataHeight); line-height: var(--nameAndDataHeight);
+    padding-left: var(--myTextPad); background-color: var(--dataBg); overflow: hidden;
+}
+
+.td_col3{
+    position: absolute; top: 0px; left: var(--trainDataLeftCol3); width: var(--trainDataWidthCol3); 
+    height: var(--nameAndDataHeight); line-height: var(--nameAndDataHeight);
+    padding-left: 5px; background-color: var(--dataBg); overflow: hidden;
+}
+
+.td_col4{
+    position: absolute; top: 0px; left: var(--trainDataLeftCol4); width: var(--trainDataWidthCol4); 
+    height: var(--nameAndDataHeight); line-height: var(--nameAndDataHeight);
+    padding-left: 5px; background-color: var(--dataBg); overflow: hidden;
+}
+
+/* panel1 overlays the quad display when a single destination is shown. It starts as transparent and hidden. */
+/* All elements on the display are children of panel1 making it the visibility control for all elements */
+.panel1 {
+    position: absolute;  top: var(--panel1Top); left: var(--panel1Left); width: var(--panel1Width); 
+    height: var(--panel1Height); background-color: var(--backing); visibility: hidden;
+}
+
+.panel1title {
+    position: absolute; top: var(--panel1TitleTop); left: var(--panel1TitleLeft); width: var(--panel1TitleWidth); 
+    height: var(--panel1TitleHeight); background-color: var(--dataBg); font-size: var(--routeTitleFontHeight); 
+    line-height: var(--panel1TitleHeight); text-align: left; padding-left: var(--myTextPad); color: white;
+}
+
+.panel1ColumnLabel {
+    position: absolute; top: var(--panel1ColLabelTop); left: var(--panel1ColLabelLeft); width: var(--panel1ColLabelWidth); 
+    height: var(--panel1ColLabelHeight); line-height: var(--panel1ColLabelHeight);
+    font-size: var(--panel1TrainItemFontHeight); text-align: left; padding-left: var(--myTextPad); color: var(--traincolumn);
+}
+
+.panel1_train_hl_01 {
+    position: absolute; top: var(--panel1TrainDataTop); left: var(--panel1TrainDataLeftCol1); width: var(--panel1TrainDataWidthCol1); 
+    height: var(--panel1ColLabelHeight); background-color: var(--dataBg); padding-left: var(--myTextPad);
+}
+
+.panel1_train_hl_02 {
+    position: absolute; top: var(--panel1TrainDataTop); left: var(--panel1TrainDataLeftCol2); width: var(--panel1TrainDataWidthCol2); 
+    height: var(--panel1ColLabelHeight); background-color: var(--dataBg); padding-left: var(--myTextPad);
+}
+
+.panel1_train_hl_03 {
+    position: absolute; top: var(--panel1TrainDataTop); left: var(--panel1TrainDataLeftCol3); width: var(--panel1TrainDataWidthCol3);
+    height: var(--panel1ColLabelHeight); background-color: var(--dataBg); padding-left: var(--myTextPad);
+}
+
+.panel1_train_hl_04 {
+    position: absolute; top: var(--panel1TrainDataTop); left: var(--panel1TrainDataLeftCol4); width: var(--panel1TrainDataWidthCol4); 
+    height: var(--panel1ColLabelHeight); background-color: var(--dataBg); padding-left: var(--myTextPad);
+}
+
+.panel1_seg0 {
+    position: absolute; top: var(--panel1Seg0Top); left: var(--panel1Seg0Left); width: var(--panel1Seg0Width); height: var(--panel1Seg0Height);
+    font-size: var(--panel1TrainItemFontHeight); text-align: left; color: var(--amber); 
+}
+
+.panel1_row0 { position: absolute; top: var(--panel1Row0Top); left: 0px }
+.panel1_row1 { position: absolute; top: var(--panel1Row1Top); left: 0px }
+.panel1_row2 { position: absolute; top: var(--panel1Row2Top); left: 0px }
+.panel1_row3 { position: absolute; top: var(--panel1Row3Top); left: 0px }
+.panel1_row4 { position: absolute; top: var(--panel1Row4Top); left: 0px }
+
+.panel1_td_col0{
+    position: absolute; top: 0px; left: var(--panel1TrainDataLeftCol0); width: var(--panel1TrainDataWidthCol0); 
+    height: var(--panel1TrainDataHeight); line-height: var(--panel1TrainDataHeight);
+    padding-left: var(--myTextPad); background-color: var(--dataBg); overflow: hidden;
+}
+
+.panel1_td_col1{
+    position: absolute; top: 0px; left: var(--panel1TrainDataLeftCol1); width: var(--panel1TrainDataWidthCol1);
+    height: var(--panel1TrainDataHeight); line-height: var(--panel1TrainDataHeight);
+    padding-left: var(--myTextPad); background-color: var(--dataBg); overflow: hidden;
+}
+
+.panel1_td_col2{
+    position: absolute; top: 0px; left: var(--panel1TrainDataLeftCol2); width: var(--panel1TrainDataWidthCol2); 
+    height: var(--panel1TrainDataHeight); line-height: var(--panel1TrainDataHeight);
+    padding-left: var(--myTextPad); background-color: var(--dataBg); overflow: hidden;
+}
+
+.panel1_td_col3{
+    position: absolute; top: 0px; left: var(--panel1TrainDataLeftCol3); width: var(--panel1TrainDataWidthCol3); 
+    height: var(--panel1TrainDataHeight); line-height: var(--panel1TrainDataHeight);
+    padding-left: var(--myTextPad); background-color: var(--dataBg); overflow: hidden;
+}
+
+.panel1_td_col4{
+    position: absolute; top: 0px; left: var(--panel1TrainDataLeftCol4); width: var(--panel1TrainDataWidthCol4); 
+    height: var(--panel1TrainDataHeight); line-height: var(--panel1TrainDataHeight);
+    padding-left: var(--myTextPad); background-color: var(--dataBg); overflow: hidden;
+}
+
+</style>
+
+<!-- = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = -->
+
+<script type="text/javascript">
+    /* In-Line Javascript Code */
+
+'use strict';
+
+// * = * = * = * = * = * = * = * = * = * = * = * 
+// Module wide variables and definitions
+const getCamdenTrainData    = 'https://api.tfl.gov.uk/line/northern/arrivals/940GZZLUCTN';
+const getNorthernLineStatus = 'https://api.tfl.gov.uk/line/northern/status';
+const networkTimeoutTime = 15300;
+const MAX_ROUTES = 4;
+const MAX_LIST_LENGTH = 5;
+let showSeconds = false;            // true  => show seconds in ETA column. 
+                                    // false => show minutes in ETA column.
+let lineStatusUpdateFlag = false;   // Set true when line status report received from server
+let lineStatusData =[] ;            // The actual data received from the server. Array of 1 item.
+
+// Colours used in the line status reports
+const clRed     = '#c04040';
+const clGreen   = '#00f000';
+const clAmber   = '#c0c000';
+const clMagenta = '#d040d0';
+const routeNames = ["Northbound towards Edgware", "Northbound towards Barnet", "Southbound via Charing Cross", "Southbound via Bank"];
+const displayNames = ["all", "edgware", "barnet", "charing cross", "bank", "0", "1", "2", "3", "4"]; 
+
+// Adaptation data for font X height changes. Need one baseFontXXSizes array per used typeface
+const baseFont01Sizes = [
+    {name: "screenTitleFontHeight", height: 60},
+    {name: "routeTitleFontHeight", height: 40},
+    {name: "trainItemFontHeight", height: 18},
+    {name: "panel1TrainItemFontHeight", height: 30},
+    {name: "statusHlFontHeight", height: 32},
+    {name: "statusDataFontHeight", height: 24},
+    {name: "acknowledgeFontHeight", height: 16}
+];
+
+const baseFont02Sizes = [
+    {name: "screenTitleFontHeight", height: 60},
+    {name: "routeTitleFontHeight", height: 40},
+    {name: "trainItemFontHeight", height: 20},
+    {name: "panel1TrainItemFontHeight", height: 42},
+    {name: "statusHlFontHeight", height: 32},
+    {name: "statusDataFontHeight", height: 24},
+    {name: "acknowledgeFontHeight", height: 16}
+];
+
+const baseFont03Sizes = [
+    {name: "screenTitleFontHeight", height: 48},
+    {name: "routeTitleFontHeight", height: 32},
+    {name: "trainItemFontHeight", height: 15},
+    {name: "panel1TrainItemFontHeight", height: 31},
+    {name: "statusHlFontHeight", height: 26},
+    {name: "statusDataFontHeight", height: 19},
+    {name: "acknowledgeFontHeight", height: 14}
+];
+
+// baseFontSizeTable[] is an array of available typefaces. Index into table
+// to find display height properties. The rRequires embedded numbers start with 01
+// and increment by 1 per available typeface.
+const baseFontSizeTable = [baseFont01Sizes, baseFont02Sizes, baseFont03Sizes];
+
+let casparcgTemplateMode = false;   // Set true if the update() function is called.
+                                    // Identifies host as CasparCG not a browser.
+let logToCaspar = false;            // Set true to show console messages on output screen.
+let trainDataRxFlag  = false;       // Set true when receive train data from TfL server.
+let displayMode = 'none';
+let deltaTime = 0;                  // Used by the clock offset display
+let updateCalled = false;           // Sets true when update() called for first time
+let timer = 0;
+let showSingle = false;             // Set true when a single route is on display
+let showSingleIndex = 0;            // The segment number displayed in single mode
+let tl = [];                        // Holds TrainList data returned by TfL server
+
+// Array of JSON objects that convert line status severity index into text and display 
+// colour for that status text display.
+const severityCodeText = [
+    {txt: 'Special Service', cl: clMagenta}, 
+    {txt: 'Closed', cl: clRed },
+    {txt: 'Suspended', cl: clRed}, 
+    {txt: 'Part Suspended', cl: clAmber}, 
+    {txt: 'Planned Closure', cl: clAmber}, 
+    {txt: 'Part Closure', cl: clAmber},
+    {txt: 'Severe Delays', cl: clAmber}, 
+    {txt: 'Reduced Service', cl: clAmber}, 
+    {txt: 'Bus Service', cl: clAmber}, 
+    {txt: 'Minor Delays', cl: clAmber}, 
+    {txt: 'Good Service', cl: clGreen}, 
+    {txt: 'Part Closed', cl: clAmber},
+    {txt: 'Exit Only', cl: clAmber}, 
+    {txt: 'No Step Free Access', cl: clMagenta}, 
+    {txt: 'Change of frequency', cl: clAmber}, 
+    {txt: 'Diverted', cl: clAmber}, 
+    {txt: 'Not Running', cl: clRed}, 
+    {txt: 'Issues Reported', cl: clAmber}, 
+    {txt: 'No Issues', cl: clGreen}, 
+    {txt: 'Information', cl: clGreen}, 
+    {txt: 'Service Closed', cl: clRed}
+];
+
+
+// * - * - * - * - * - * - * - * - * - * - * - 
+// Data used for static display operation.
+const nwFixed = [
+    {timeToHere: 140, toward: 'Edgware', plat: 1, lastReport: 'Between Euston and Mornington Crescent'},
+    {timeToHere: 260, toward: 'Edgware', plat: 1, lastReport: 'At Kings Cross P7'},
+    {timeToHere: 440, toward: 'Edgware', plat: 1, lastReport: 'At Angel Platform 2'},
+    {timeToHere: 680, toward: 'Edgware', plat: 1, lastReport: 'At Moorgate Platform 7'},
+    {timeToHere: 750, toward: 'Edgware', plat: 1, lastReport: 'At Embankment Platform 3'}
+];
+
+const neFixed = [
+    {timeToHere:  560, toward: 'High Barnet', plat: 3, lastReport: 'At Leicester Square Platform 4'},
+    {timeToHere:  860, toward: 'High Barnet', plat: 3, lastReport: 'Approaching Waterloo Platform 1'},
+    {timeToHere:  920, toward: 'High Barnet', plat: 3, lastReport: 'At London Bridge Platform 1'},
+    {timeToHere:  980, toward: 'High Barnet', plat: 3, lastReport: 'Departed Kennington Platform 1'},
+    {timeToHere: 1400, toward: 'High Barnet', plat: 3, lastReport: 'At Oval Platform 1'}
+];
+
+const swFixed = [
+    {timeToHere:  20, toward: 'Kennington', plat: 2, lastReport: 'Between Chalk Farm and Camden Town'},
+    {timeToHere: 320, toward: 'Kennington', plat: 2, lastReport: 'Approaching Belsize Park'},
+    {timeToHere: 450, toward: 'Battersea Power Station', plat: 4, lastReport: 'Between Highjate and Archway'},
+    {timeToHere: 680, toward: 'Battersea Power Station', plat: 4, lastReport: 'Between Finchley Central and East Finchley'},
+    {timeToHere: 740, toward: 'Battersea Power Station', plat: 4, lastReport: 'Around Mill Hill East'}
+];
+
+const seFixed = [
+    {timeToHere: 500, toward: 'Morden', plat: 4, lastReport: 'At Highgate Platform 2'},
+    {timeToHere: 860, toward: 'Morden', plat: 4, lastReport: 'At Woodside Park'},
+    {timeToHere: 1040, toward: 'Morden', plat: 2, lastReport: 'Between Colindale and Hendon Central'},
+    {timeToHere: 1100, toward: 'Morden', plat: 4, lastReport: 'Between High Barnet and Totteridge & Whetstone'},
+    {timeToHere: 1400, toward: 'Morden', plat: 2, lastReport: 'Between Edgware and Burnt Oak'}
+];
+const segFixed = [nwFixed, neFixed, swFixed, seFixed]; 
+const statusCodeFixed = 10;
+const statusMessageFixed = 'Northern Line: No reported delays';
+const todFixed = '21:27:15';
+
+// End of fixed data definition.
+// = = = = = = = = = = = = = = = = = = = = = = 
+
+// * - * - * - * - * - * - * - * - * - * - * - 
+// function logError(msg) sends the text passed as parameter msg to a logging display.
+// The log can be the console or a single line at the bottom of the html page.
+function logError(msg) {
+    if (logToCaspar) {
+        let logReport = document.getElementById("statusLog");
+        logReport.innerHTML = '>' + msg;
+    }
+    else {
+        console.log(msg);
+    }
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * - 
+// =================//
+// Class trainRoute //
+// =================//
+/*
+    Class trainRoute provides information management services for a list of trains on a single 
+    destination route. The functions in the class perform various updates to the list of
+    trains and display that list on the GUI window. The data list is an array of JSON records,
+    each record holding 4 elements:
+    
+    array[x].timeToHere     Estimated number of seconds until train arrives at the station (integer).
+    array[x].toward         Destination station (string)
+    array[x].plat           Platform number (integer)
+    array[x].lastReport     Last reported position of the train.
+
+    'Local' class variables:
+    _trainList      Holds the sorted list of trains for the route, soonest arrival at head of list.
+    _displayID      The index of the section of the gui display defined in the class instance
+                    0 is top left (nw), 1 is top right (ne), 2 is bottom left (sw), 3 is bottom 
+                    right (se).
+    _segName        A string equal to "segment_" + _displayID. This is DOM name of outer container
+                    (<div>) for the train data.
+*/
+
+class trainRoute {
+
+    constructor(segment) {
+        this._trainlist = [];
+        this._displayID = (segment >= 0 ) && (segment < MAX_ROUTES) ? segment : 0;
+        this._segName   = "segment_" + this._displayID.toString();
+    }
+
+
+    // Empty the train list ready for a re-load with new train data.
+    clear() {
+        this._trainlist = [];
+    }
+
+
+    // Add train data to the end of the current list. Sort list to have shortest time 
+    // to platform at the head of list.
+    append(trainreport) {
+        this._trainlist.push(trainreport);
+        if (this.len() > 1) {
+            this._trainlist.sort((a, b) => a.timeToHere - b.timeToHere);
+        }
+    }
+
+
+    // Return the number of train reports in the list.
+    len() {
+        return this._trainlist.length;
+    }
+
+
+    // tick() Reduces the ETA count by 1 second for each train in the array.
+    // Deletes any trains with time to station less than 0. The array is already ordered
+    // by the time of arrival value. So remove first item by the shift method until the
+    // first value is >= 0.
+    tick() {
+        for (let ix = 0; ix < this.len(); ix++) {
+            this._trainlist[ix].timeToHere -= 1;
+        }
+        while ((this._trainlist.length > 0) && (this._trainlist[0].timeToHere < 0)) {
+            this._trainlist.shift();
+        }
+
+        this.showTrains();  // Update display
+    }
+
+
+    // printTrainList is mostly a Debug/development tool.
+    // Prints sorted array of trains on the browser console.
+    printTrainList() {
+        console.log(`\nList of trains for display section ${this._displayID}`);
+        console.log(`List has ${this.len()} entries:`);
+        if (this.len() == 0) return;
+
+        for (let myIndex = 0; myIndex < this.len(); myIndex++) {
+            console.log(`ID: ${myIndex} ETA: ${this._trainlist[myIndex].timeToHere} Plat: ${this._trainlist[myIndex].plat} Dest: ${this._trainlist[myIndex].toward} Last Reported: ${this._trainlist[myIndex].lastReport}`);
+        }
+    }
+
+
+    // Convert the integer number of seconds provided as a parameter into a string controlled 
+    // by global variable showSeconds. If this property is 'true' the return value is seconds.
+    // If the property is 'false' the return value is minutes until seconds value <= 30 when 
+    // the value is returned as "DUE".
+    timeToStation(secondsCount) {
+        if (showSeconds) {
+            return secondsCount.toString() + ' s';
+        } 
+        else {
+            let minuteCount = Math.floor(secondsCount / 60);
+            if (minuteCount == 0) {
+                if (secondsCount > 30) {
+                    return '1 min';
+                } else {
+                    return 'DUE';
+                }
+            } else {
+                return (minuteCount + 1).toString() + ' min';
+            }
+        }
+    } 
+
+
+    // Display the train information for the first five trains (maximum) on the GUI. If there are 
+    // less than MAX_LENGTH trains blank the displays on the remainder of the list
+    showTrains() {
+        let listLength = this.len();
+        let myBlank = '';      // Use hyphen character during development, null for released version.
+        let myRow = 0;
+        
+        // Get pointer to the correct element in the DOM
+        let domPtr = document.getElementById(this._segName);
+
+        if (listLength < MAX_LIST_LENGTH) {
+            for (myRow = 0; myRow < listLength; myRow++) {
+                domPtr.children[myRow].children[0].innerHTML = (myRow + 1).toString();
+                domPtr.children[myRow].children[1].innerHTML = this._trainlist[myRow].toward ;
+                domPtr.children[myRow].children[2].innerHTML = this.timeToStation(this._trainlist[myRow].timeToHere);
+                domPtr.children[myRow].children[3].innerHTML = this._trainlist[myRow].plat.toString();
+                domPtr.children[myRow].children[4].innerHTML = this._trainlist[myRow].lastReport;
+            }
+
+            for (myRow = listLength; myRow < MAX_LIST_LENGTH; myRow++) {
+                domPtr.children[myRow].children[0].innerHTML = myBlank;
+                domPtr.children[myRow].children[1].innerHTML = myBlank;
+                domPtr.children[myRow].children[2].innerHTML = myBlank;
+                domPtr.children[myRow].children[3].innerHTML = myBlank;
+                domPtr.children[myRow].children[4].innerHTML = myBlank;
+            }
+        }
+
+        else {
+            for (myRow = 0; myRow < MAX_LIST_LENGTH; myRow++) {
+                domPtr.children[myRow].children[0].innerHTML = (myRow + 1).toString();
+                domPtr.children[myRow].children[1].innerHTML = this._trainlist[myRow].toward ;
+                domPtr.children[myRow].children[2].innerHTML = this.timeToStation(this._trainlist[myRow].timeToHere);
+                domPtr.children[myRow].children[3].innerHTML = this._trainlist[myRow].plat.toString();
+                domPtr.children[myRow].children[4].innerHTML = this._trainlist[myRow].lastReport;
+            }
+        }
+
+        // Test for single segment display mode. If active copy the data from the active quadrant to the single display
+        if (showSingle && (this._displayID == showSingleIndex)) {
+            let domSinglePtr = document.getElementById("panel1_segment_0");
+            
+            for (myRow = 0; myRow < MAX_LIST_LENGTH; myRow++) {
+                domSinglePtr.children[myRow].children[0].innerHTML = domPtr.children[myRow].children[0].innerHTML;
+                domSinglePtr.children[myRow].children[1].innerHTML = domPtr.children[myRow].children[1].innerHTML;
+                domSinglePtr.children[myRow].children[2].innerHTML = domPtr.children[myRow].children[2].innerHTML;
+                domSinglePtr.children[myRow].children[3].innerHTML = domPtr.children[myRow].children[3].innerHTML;
+                domSinglePtr.children[myRow].children[4].innerHTML = domPtr.children[myRow].children[4].innerHTML;
+            }
+        }
+    }
+}
+
+
+// ======================= //
+// END of Class trainRoute //
+// ======================= //
+
+
+// function setDisplayFont(fontIndex) is called to change the font sizes used for the various 
+// information display boxes. Size changes are required because of the different X sies of each 
+// typeface we can use. Data tables for the sizes are defined in a set of tables baseFontXXSizes.
+function setDisplayFont(fontIndex) {
+    // Check that the fontIndex is in a valid range
+    let numFontSets = baseFontSizeTable.length;
+    if ((fontIndex < 1) || (fontIndex > numFontSets)) {
+        logError("Invalid font index supplied - ignoring the request");
+        return;
+    }
+    
+    let myIdx = fontIndex - 1;
+    let newToken = 'baseFont' + twoDigit(fontIndex);
+
+    let ptr1 = document.getElementById("fullscreen").classList;
+    let myClasses = ptr1.valueOf();
+    let tokenIdx = 0;
+    for (let i = 0; i < myClasses.length; i++) {
+        if (myClasses[i].startsWith('baseFont')) tokenIdx = i;
+    }
+    if (tokenIdx >= 0) ptr1.replace(myClasses[tokenIdx], newToken);
+    else ptr1.add(newToken);
+
+    // Load the display font sizes
+    let idxLimit = baseFontSizeTable[0].length;
+    let propertyName=""
+    let propertyValue = "";
+    for (let idx = 0; idx < idxLimit; idx++) {
+        propertyName = '--' + baseFontSizeTable[myIdx][idx].name;
+        propertyValue = baseFontSizeTable[myIdx][idx].height.toString(10) + 'px';
+        document.documentElement.style.setProperty(propertyName, propertyValue);
+    }
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * - 
+// getScreenSeg() returns which of 4 segments (0..3) should display this train. Return
+// value of MAX_ROUTES happens when there is defective data report from TfL.
+//
+// Most inbound trains have the core identifier 'CX' or 'Bank' as the last word 
+// in the 'towards' property, but very occasionally the report is
+// 'towards':'Euston via Bank Branch' instead of 'towards':'Euston via Bank'
+// This requires a more complex test of the string for 'inbound' ('Southward') data
+// reports rather than testing just the last word.
+//
+// Input Parameters:
+//    platHead        Integer: 0 = outbound (Northward), 1 = inbound
+//    platID          The platform number as an integer
+//    inboundRoute    The route information string from the .towards data
+function getScreenSeg(platHead, platID, inboundRoute) {
+    let segID = MAX_ROUTES;
+
+    if (platHead == 0) {
+        if (platID == '1') segID = 0;
+        else if (platID == '3') segID = 1;
+    }
+    else if (platHead == 1) {
+        if (inboundRoute.toLowerCase().indexOf('cx') >= 0) segID = 2;
+        else if (inboundRoute.toLowerCase().indexOf('bank') >= 0) segID = 3;
+    }
+    return segID;
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * - 
+// Function getTrains() has one primary action - perform an asynchronous data fetch 
+// of train data for Camden Town. The train data is stored in a global array object 
+// called tl (as in TrainList).
+//
+// Network Timeouts:
+// The attempt to load data from the remote server may fail to get a response for
+// one or more reasons. Therefore this fetch function implements a timeout on the
+// fetch() operation. Whilst there are newer modes to implement the timeout process
+// than used here, these work in the latest browsers but not with the embedded 
+// Chromium used in CasparCG. So this module uses an Abort Controller to react to
+// the timeout.
+async function getTrains() {
+    try {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), networkTimeoutTime);
+
+        const response = await fetch(getCamdenTrainData, {headers: {'Accept': 'application/json'}, signal: controller.signal, cache:"no-cache"});
+        if (!response.ok) {
+            clearTimeout(id);
+            throw new Error('Network response during trains data request was not OK');
+        }
+        if (response.status == 200) {
+            try {
+                clearTimeout(id);
+                tl = await response.json();
+                clearTimeout(id);
+                trainDataRxFlag = true;         // Signal the data availability
+            }
+            catch {
+                logError('Bad JSON in traindata');
+                tl = [];
+                trainDataRxFlag = false;
+            }
+        }
+    }
+    catch (error) {
+        if (error.name === 'AbortError') {
+            logError('Network timeout error whilst trying to get train data.');
+        }
+        else {
+            logError(`Other error thrown. Message: ${error}`);
+        }
+        return;
+    }
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * -
+// Request the status for the Northern line.
+// See function getTrains() for description of timeout actions.
+async function getLineStatus() {
+    let ls = [];
+
+    try {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), networkTimeoutTime);
+
+        const response = await fetch(getNorthernLineStatus, {headers: {'Accept': 'application/json'}, signal: controller.signal, cache:"no-cache"});
+        if (!response.ok) {
+            clearTimeout(id);
+            throw new Error('Network response during line status request was not OK');
+        }
+        try {
+            clearTimeout(id);
+            ls = await response.json();
+            lineStatusData = ls ;       // Make data available to others
+            lineStatusUpdateFlag = true;
+        }
+        catch {
+            // Bad JSON data - TfL servers sometimes return XML formatted data despite telling them
+            // we want JSON. The work-around is just to queue a repeat request after 1.5 seconds.
+            // TfL forum shows issues are ongoing since early 2022 or before. Most (all?) BAD JSON 
+            // errors return 'text/XML' as the content-type.
+            let cType = response.headers.get('content-type').split(';')[0].toLowerCase();
+
+            if (!(cType === 'text/xml')) {
+                logError('Error in JSON foratted data');
+            }
+            lineStatusData = [];
+            lineStatusUpdateFlag = false;
+            setTimeout(repeatStatusRequest, 1500);
+        }
+    } 
+    catch (error) {
+        if (error.name === 'AbortError') {
+            logError('Network timeout error whilst trying to get line status.')
+        }
+        else {
+            logError(`Other error thrown. Message:${error.msg} `)
+        }
+    }
+}
+
+
+// Re-run the status request
+function repeatStatusRequest() {
+    getLineStatus();
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * -
+// Display the line status data reported by the server and saved to global memory.
+// The status data is converted to text via an array. Each report has an associated colour
+// for that status headline text.
+function reportLineStatus() {
+    if (!lineStatusUpdateFlag) return;
+
+    let mySeverityCode = lineStatusData[0].lineStatuses[0].statusSeverity ;
+    let myStatusDetail = '' ;
+    let targetDisplay = document.getElementById('status_hl');       // HTML object that shows summary status
+    let targetReason  = document.getElementById('status_detail');   // HTML object that shows detail of report.
+
+    if (mySeverityCode >= severityCodeText.length) {
+        logError('Unknown line status value of ' + str(mySeverityCode));
+        return;
+    }
+
+    targetDisplay.innerHTML = severityCodeText[mySeverityCode].txt;
+    document.documentElement.style.setProperty('--statusInfoColour', severityCodeText[mySeverityCode].cl);
+    if (mySeverityCode != 10) myStatusDetail = lineStatusData[0].lineStatuses[0].reason;
+    targetReason.innerHTML  = myStatusDetail;
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * -
+// parseTrainData() uses information stored in global array tl[] by the getTrains()
+// network request. 
+function parseTrainData() {
+    if (tl.length == 0) {
+        console.log(`Enetered zero source length parse processing.`);
+        for (let idx = 0; idx < MAX_ROUTES; idx++) {
+            segList[idx].clear();
+        }
+        displayTrains();
+        return; 
+    }
+
+    // Split the train data into the four routes through the station.
+    let platform = 0, direction = 0, secsToStation = 0, trainSeg = MAX_ROUTES, lastReported='';
+
+    // Remove existing data lists for each route
+    for (let idx = 0; idx < MAX_ROUTES; idx++) segList[idx].clear();
+
+    let isNowUTC = utcSecsNow();
+    for (const train of tl) {
+        platform = parseInt(train.platformName.slice(-1), 10);
+        direction = train.direction === "outbound" ? 0 : 1; // 0 means Northbound
+        secsToStation = train.timeToStation;
+        lastReported = train.currentLocation;
+        trainSeg = getScreenSeg(direction, platform, train.towards);
+
+        // Use the projected time of arrival (ISO date) as the provided timeToStation values seem untrustworthy
+        let arriveAt = iso8601ToUTCseconds(train.expectedArrival);
+        secsToStation = arriveAt - isNowUTC;
+        if (trainSeg < MAX_ROUTES) {
+            let myData = {
+                timeToHere: secsToStation, 
+                toward: train.destinationName.replace(' Underground Station', ''), 
+                plat: platform, 
+                lastReport: lastReported 
+            };
+            if (secsToStation > 0) segList[trainSeg].append(myData);
+        }
+    }
+    trainDataRxFlag = true;     // Inform the timer system data is available to display.
+
+
+    // Local function to convert ISO8601 string (format '2024-03-31T09:26:43Z') to seconds since 1970 datum.
+    function iso8601ToUTCseconds(time1) {
+        let parts = time1.replace(/Z/g,'').replace(/T/g,'-').replace(/:/g,'-') ;
+        let dateTimeList = parts.split('-');
+        let intList = [];
+        for (let ix = 0; ix < dateTimeList.length; ix++) {
+            intList.push(parseInt(dateTimeList[ix]));
+        }
+        let utcformat = new Date(Date.UTC(intList[0], intList[1] - 1, intList[2], intList[3], intList[4], intList[5], 0));
+        utcformat = Math.round(utcformat.getTime() / 1000);
+        
+        return utcformat;
+    }
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * -
+function twoDigit(val) {
+    if ((val >= 100) || (val < 0)) return '??' ;    // Catchall...
+    if (val < 10) return '0' + val.toString();
+    else return val.toString();
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * -
+// Prepare the clock time string from hours, minutes, seconds values.
+function formatDigitalClock(hh, mm, ss) {
+    let display = '';
+    display = twoDigit(hh) + ':' + twoDigit(mm) + ':' + twoDigit(ss);
+    return display;
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * -
+function clearSegmentData() {
+    for (let ix = 0; ix < MAX_ROUTES ; ix++) {
+        segList[ix].clear();
+    }
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * -
+// Display all quadrants train data
+function displayTrains() {
+    for (let ix = 0; ix < MAX_ROUTES; ix++) {
+        segList[ix].showTrains();
+    }
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * -
+// Action the once per second data update tick
+function trainDataTick() {
+    for (let ix = 0; ix < MAX_ROUTES; ix++) {
+        segList[ix].tick();
+    }
+}
+
+
+// utcSecsNow() returns integer number of seconds since 1970 datum at the
+// instant the function is called.
+function utcSecsNow() {
+    let dd = new Date();
+    return Math.floor(dd.getTime() / 1000);
+}
+
+// * - * - * - * - * - * - * - * - * - * - * -
+// myTimer() ticks every 250 ms. On each tick that is in the first quarter of a
+// second this function updates the master clock display using the local 
+// computer clock as the time source. It then checks the train data avilable
+// flag and the line status flag, processing as required. The line status is
+// requested every minute, and the train data is requested every 30s.
+function myTimer() {
+    let dd = new Date();
+    let currentTime = Math.floor(dd.getTime() / 1000);
+    let ee = new Date();
+    let offdd = new Date(ee.getTime() - deltaTime);     // Displays an offset time when needed
+
+    if (dd.getMilliseconds() < 250) {
+        let myClockTime = formatDigitalClock(offdd.getHours(), offdd.getMinutes(), offdd.getSeconds());
+        document.getElementById('tod_clock').innerHTML = myClockTime ;
+
+        // Check if there is fresh data from the TfL server(s). If so parse data.
+        if (trainDataRxFlag) {
+            clearSegmentData();
+            parseTrainData();
+            displayTrains();
+            trainDataRxFlag = false;
+        } else {
+            trainDataTick();
+        }
+    
+        // Issue new train data request every 30 seconds.
+        if (currentTime > timer) {
+            timer = currentTime + 30;
+            getTrains();
+        }
+
+        // Check if there is new status data received from TfL server(s)
+        if (lineStatusUpdateFlag) {
+            reportLineStatus();
+            lineStatusUpdateFlag = false;
+        }
+
+        // Issue a line status request at start of each minute
+        if ((currentTime % 60) == 0) {
+            getLineStatus();
+        }
+    }
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * -
+// Define class instances for each display quadrant.
+let nwSeg = new trainRoute(0);
+let neSeg = new trainRoute(1);
+let swSeg = new trainRoute(2);
+let seSeg = new trainRoute(3);
+let segList = [nwSeg, neSeg, swSeg, seSeg];     // Define array to map segment class instance to the segment index
+let intervalTimerID = null;
+
+
+// function setOperationMode(string: newMode) is called when the user requests a different style 
+// of display - 'dynamic', 'single', 'static'. This function may be invoked via a CasparCG update 
+// request with key name 'mode', or via the query apppended to the URL when used in a browser. 
+// For example:
+//     xxx.html?mode=static
+function setOperationMode(newModeName) {
+    switch (newModeName) {
+        case 'dynamic':
+            if (displayMode === 'dynamic') return;
+
+            timer = utcSecsNow() - 1 ;      // Startup train data requests every 30 seconds
+            intervalTimerID = setInterval(myTimer, 250);  // Start the timer loop
+            getLineStatus();
+            // getTrains(); happens via the timer service
+            displayMode = 'dynamic';
+            break;
+
+        case 'single':
+            // If current mode is dynamic, stop the timer loop
+            if (displayMode === 'dynamic') {
+                    clearInterval(intervalTimerID);
+                    intervalTimerID = null;
+            }
+            let myCounter = 0;
+            fixedClockTime();
+            getLineStatus();
+            getTrains();
+            let myTimerId = setInterval(() => {
+                myCounter += 1;
+                if (myTimer >= 20) {
+                    clearInterval(myTimerId);
+                    console.log("Failed to get status or trains for single display mode");
+                }
+                if (lineStatusUpdateFlag && trainDataRxFlag) {
+                    clearInterval(myTimerId);
+                    clearSegmentData();
+                    parseTrainData();
+                    displayTrains();
+                    reportLineStatus();
+                }
+            }, 1000);
+            
+            lineStatusUpdateFlag = false;
+            trainDataRxFlag = false;
+            displayMode = 'single';
+            break;
+
+        case 'static':
+            if (displayMode === 'dynamic') {
+                clearInterval(intervalTimerID);
+                intervalTimerID = null;
+            }
+            fixedClockTime(todFixed);
+            for (let ix = 0; ix < MAX_ROUTES; ix++) {
+                segList[ix].clear() ;
+                for (let tr = 0; tr < MAX_LIST_LENGTH; tr++) {
+                    segList[ix].append(segFixed[ix][tr]);
+                }
+                segList[ix].showTrains();
+            }
+            document.getElementById('status_hl').innerHTML = severityCodeText[statusCodeFixed].txt;
+            document.documentElement.style.setProperty('--statusInfoColour', severityCodeText[statusCodeFixed].cl);
+            document.getElementById("status_detail").innerHTML = statusMessageFixed;
+            lineStatusUpdateFlag = false;
+            trainDataRxFlag = false;
+            displayMode = 'static';
+            break;
+        
+        default:
+            break;
+
+        function fixedClockTime(timeValue) {
+            let myTimeValue = '--:--:--';
+            if (!((timeValue === undefined) || (timeValue === null))){
+                myTimeValue = timeValue;
+            }
+            let myTodClock = document.getElementById("tod_clock");
+            myTodClock.innerHTML = myTimeValue;
+        }   // end fixedClockTime()
+    }
+}
+
+
+// function getTimeOffset is called when the update includes a key called 'startat'
+// There are three patterns to the key value:
+// 1) 'off'         - restores operation of zero offset clock display (length 3)
+// 2) 'hh:mm:ss'    - sets the clock display start time (length 8)
+// 3) 'hh:mm'       - sets the clock display start time with seconds = 0 (length 5) 
+// Template users MUST provide 24-hour time including leading zeros on hours, minutes and seconds.
+function getTimeOffset(myStartTime) {
+    // Apply some simple validation tests to the myStartTime string.
+    if (!((myStartTime.length === 8) || (myStartTime.length === 5) || ((myStartTime.length === 3) && (myStartTime = 'off')))) {
+        logError('Bad format or value for token "startat"');
+        deltaTime = 0;      // Restore standard time display
+        return;
+    }
+
+    if ((myStartTime.length === 3) && (myStartTime = 'off')) {
+        deltaTime = 0;
+        return;
+    }
+
+    const validCharacters = '0123456789:';
+    let isValid = true;
+    for (let ix = 0; ix < myStartTime.length; ix++) {
+        if (validCharacters.indexOf(myStartTime[ix]) === -1) isValid = false;
+    }
+
+    if (!isValid) {
+        deltaTime = 0;      // Restore standard time display
+        logError('Bad token for "startat" - invalid character');
+        return;
+    }
+
+    let timeElements = myStartTime.split(':');
+    if (timeElements.length == 2) timeElements.push("00");  // Ensure we have hours minutes and seconds
+    let hh = parseInt(timeElements[0]);
+    let mm = parseInt(timeElements[1]);
+    let ss = parseInt(timeElements[2]);
+    
+    let dNow = new Date();      // Get two independant copies of current time (avoid shallow copy issues)
+    let dDelta = new Date();
+    dDelta.setHours(hh, mm, ss);
+    deltaTime = dNow.getTime() - dDelta.getTime();      // deltaTime is globally available.
+}   // end function getTimeOffset()
+
+
+function setDisplayMode(newDisplayMode) {
+    let panelPtr = document.getElementById('panel1');
+    switch (newDisplayMode.toLowerCase()){
+        case 'all':
+        case '0':
+            panelPtr.children[0].innerHTML = "";
+            panelPtr.style.visibility = "hidden";
+            showSingle = false;
+            showSingleIndex = -1;
+            break;
+
+        case 'edgware':
+        case '1':
+            showSegment(0);
+            break;
+
+        case 'barnet':
+        case '2':
+            showSegment(1);
+            break;
+            
+        case 'charing cross':
+        case '3':
+            showSegment(2);
+            break;
+            
+        case 'bank':
+        case '4':
+            showSegment(3);
+            break;
+
+        default:
+            break;
+    }
+
+    function showSegment(whichSegment) {
+        if ((whichSegment < 0) || (whichSegment >= MAX_ROUTES)) return; // Just being defensive...
+        blankSegmentTrains();
+        panelPtr.children[0].innerHTML = routeNames[whichSegment];
+        panelPtr.style.visibility = "visible";
+        showSingle = true;
+        showSingleIndex = whichSegment;
+    }
+
+    function blankSegmentTrains() {
+        for (let idx = 0; idx < MAX_LIST_LENGTH; idx++) {
+            for (let idy = 0 ; idy < 5; idy++) {
+                panelPtr.children[2].children[idx].children[idy].innerHTML = "";
+            }
+        }
+    }
+}
+
+
+// function init() is called when the html document has been loaded. One slight problem is setting 
+// this html page to operate appropriately in a browser, or as a full page html page play in 
+// CasparCG, or to operate as a CasparCG template. Unfortunately CasparCG server v2.1.xx_NRK does 
+// not support any tags that indicate it is running the page under CasparCG controls.
+//
+// The work around is to run a timeout that allows for the CasparCG producer to invoke the 
+// update() function. Update sets a global flag to indicate it has been called, and hence we
+// are operating as a CasparcG template. If the flag is set at end of timeout period init() has no
+// work to do. If the flag is not asserted the code is operating in either a browser or as a 
+// CasparCG HTML page.
+function init() {
+    // Initialise route name data displays
+    let destPtr = document.getElementById("fullscreen");
+    for (let idx = 0; idx < MAX_ROUTES; idx++) {
+        destPtr.children[idx+2].innerHTML = routeNames[idx];
+    }
+
+    showSingle = false;
+    showSingleIndex = 0;
+    let singleNameHolder = document.getElementById("panel1");
+    singleNameHolder.children[0].innerHTML = routeNames[showSingleIndex];
+
+    setTimeout(goBrowser, 250); // Allow for update() to be called if template operation
+
+    function goBrowser() {
+        if (casparcgTemplateMode) return;
+
+        timer = utcSecsNow() - 1;
+        intervalTimerID = setInterval(myTimer, 250);  // Start the timer loop
+        getLineStatus();
+        // getTrains() is be called by the myTimer() code;
+        displayMode = 'dynamic';
+
+        // Check for any user input via the search properties on the URL
+        let rawQuery = window.location.search ;
+        if (rawQuery.length === 0) return;
+
+        let query = rawQuery.slice(1).toLowerCase();
+        let myResult = {};
+        query.split("&").forEach(function(part) {
+            let item = part.split("=");
+            myResult[item[0]] = decodeURIComponent(item[1]);
+        });
+        
+        // Look for the four keys we recognise - 'mode'  'startat'  'display'  'usefont'
+        if ('startat' in myResult) {
+            getTimeOffset(myResult.startat);
+        }
+
+        // Check for operation mode control key 'mode'
+        if ('mode' in myResult) {
+            setOperationMode(myResult.mode);
+        } 
+
+        if ('display' in myResult) {
+            setDisplayMode(myResult.display);
+        }
+
+        if ('usefont' in myResult) {
+            setDisplayFont(myResult.usefont);
+        }
+    }
+}
+
+
+// * - * - * - * - * - * - * - * - * - * - * -
+/*
+   ******************************************************************
+   * Definitions below here are CasparCG template support functions *
+   ******************************************************************
+*/
+
+/*
+    Template instance data sent by a CasparCG client can use one of two wrapper technologies -
+    XML or stringified JSON. This instance data has to be extracted and passed into the html 
+    elements that show the information on screen.
+
+    Older clients tended to default to XML wrappers, newer clients tend to use JSON. SVT CasparCG 
+    clients default to XML, but have a ick box in the inspector that can set the data wrapping
+    to JSON.
+
+    The XML data structure is illustrated below. Each line ends with a '\r\n' or 
+    'carriage return line feed'. The illustrated content below is shown split across several
+    lines, but the actual delivery is as a single string from client to server with a single
+    <cr><lf> at the end of the string.
+
+      <templateData>
+         <componentData id="#idCaspar#">
+            <data id="text" value="#valCaspar#" />
+         </componentData>
+         :
+         :
+         <componentData id="#idCaspar#">
+            <data id="text" value="#valCaspar#" />
+         </componentData>
+      </templateData>
+
+    XML delivery is parsed to create a JSON end-use format.
+
+    For JSON capable clients (including custom clients) the structure of the string has the
+    the format:
+
+    {"f0":"Value of f0","f1":"Value of f1"}
+*/
+
+// Define template wide accessible holder for JSON converted data.
+let dataCaspar = {};
+
+// Replace characters that could become a problem for HTML if left "as is".
+function escapeHtml(unsafe) {
+   return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+
+// Make the XML templateData message into a more simple key:value object
+function XML2JSON(node)   {
+   let data = {};   // resulting object
+   for (let k = 0; k < node.length; k++)   {
+      let idCaspar = node[k].getAttribute("id");
+      let valCaspar = node[k].childNodes[0].getAttribute("value");
+      if ( idCaspar != undefined && valCaspar != undefined ) { data[idCaspar] = valCaspar; };
+   }
+
+   return data;
+}
+
+
+// Parse data from client. Detects XML or JSON wrapper by looking at first character of message.
+// XML templateData converts to an XML object. Object then converted into JSON.
+function parseCaspar(str)   {
+    let xmlDoc;
+    let parser;
+    if (str != undefined) {
+        if (str.length != 0) {
+            if (str[0] === '<') {
+                if (window.DOMParser) {
+                    parser=new DOMParser();
+                    xmlDoc=parser.parseFromString(str, "text/xml");
+                }
+                dataCaspar = XML2JSON(xmlDoc.documentElement.childNodes);
+            }
+            else {
+                dataCaspar = JSON.parse(str);
+            }
+        }
+    }
+}
+
+
+// A simple function to insert data into elements named the same as the keys in the instance text.
+function dataInsert(dataCaspar)   {
+    for (let idCaspar in dataCaspar) {
+        let idTemplate = document.getElementById(idCaspar);
+        if (idTemplate != undefined)  { idTemplate.innerHTML = escapeHtml(dataCaspar[idCaspar]); }
+    }
+}
+
+
+/*
+   *****************************************
+   * CasparCG Standard Interface Functions *
+   *****************************************
+*/
+
+// Valid for server V2.1.x and later. 
+// No actions needed by play() in this template application.
+function play() {
+
+}
+
+
+// Call for a stop from a CasparCG client. For this template we just close the screen.
+// Actions differ between server 2.1.x and later versions. In V2.1 call window.close()
+// but V2.2 onwards call window.remove(). Test for an object window.caspar or 
+// window.casparcg. If either present we are running in CasparCG V2.2 or later.
+function stop() {
+    if (templateProps) templatekeys(1); // Close template properties display if on show.
+    
+    if ((typeof window.caspar != undefined) || (typeof window.casparcg != undefined)) window.remove();
+    else (window.close());
+}
+
+
+// The next() function steps along the timeline, potentially running an animation then
+// stopping to await further commands. This template does not have a timeline operation,
+// so next() is a dummy process.
+function next() {
+
+}
+
+
+// function update(str) is invoked when CasparCG server send instance data to the template either
+// because the template has been loaded and told to play(), or the user has used the AMCP update
+// tool to update the instance data. 
+// Key Name     Value(s)
+// 'mode'       'dynamic', 'single', 'static'. Default is 'dynamic'.
+// 'startat'    Initial clock time as 'hh:mm:ss' or 'hh:mm'. 'off' uses time of day
+// 'display'    Show all four destinations ('all' or '0') or a single destination route
+//              'edgware' / '1' : 'barnet' / '2' : 'charing cross' / '3' : 'bank' / '4'
+// usefont      The index number of the typeface to use. Default is Arial 
+function update(str) {
+    // Set the flag that indicates operating as a template rather than browser page.
+    if (casparcgTemplateMode === false) casparcgTemplateMode = true;
+
+    parseCaspar(str);
+    if (updateCalled == false) {
+        // If no mode present in first call, set dynamic as a default mode.
+        if (!('mode' in dataCaspar)) dataCaspar.mode = 'dynamic';
+        updateCalled = true;
+    }
+
+    // Check for clock display control key presence.
+    if ('startat' in dataCaspar) {
+        getTimeOffset(dataCaspar.startat);
+    }
+
+    // Check for operation mode control key 'mode'
+    if ('mode' in dataCaspar) {
+        setOperationMode(dataCaspar.mode);
+    }
+
+    // All four routes or just a single route
+    if ('display' in dataCaspar) {
+        setDisplayMode(dataCaspar.display);
+    }
+
+    // Typeface to use on the display. A number as a string
+    if ('usefont' in dataCaspar) {
+        setDisplayFont(dataCaspar.usefont);
+    }
+
+}   // End of CasparCG support function update(string)
+
+
+// *************************************************************************************************************
+// Invoked function to show template property names. Enter the string "templatekeys(1)" into the invoke box,
+// then press the F7 key to show the list of keys used and their function.
+let templateProps = false;
+
+function templatekeys(val) {
+    if ((val === undefined) || (val === null)) return;
+    if (typeof val === 'number') {
+        if (val === 1) {
+            let tplt = document.getElementById('keyValues');
+            if (templateProps) {
+                tplt.classList.remove('showKeyValues');
+                templateProps = false;
+            } else {
+                // Display the template key namess
+                tplt.classList.add('showKeyValues');
+                templateProps = true;
+            }
+        }
+    }
+}
+
+
+// Invokable function to enable/disable error log onto bottom of main display.
+// The parameter MUST be a integer with value 1.
+function log_to_window(val) {
+    if ((val === undefined) || (val === null)) return;
+    if (typeof val === 'number') {
+        if (val === 1) {
+            if (logToCaspar) {
+                document.getElementById('statusLog').innerHTML = '';
+                logToCaspar = false;
+            } else {
+                document.getElementById('statusLog').innerHTML = '>';
+                logToCaspar = true;
+            }
+
+        }
+    }
+}
+
+
+// Invokable function to enable/disable display of ETA in seconds or as minutes/'DUE'
+// The parameter MUST be an integer with value 1. This function is used for debug/
+// development, but it allows the mode change to be triggered by the CasparCG client
+// using the invoke tool.
+function etaseconds(val) {
+    if ((val === undefined) || (val === null)) return;
+    if (typeof val === 'number') {
+        if (val === 1) {
+            showSeconds = !showSeconds;
+            for (let ix = 0; ix < MAX_ROUTES; ix++) {
+                segList[ix].showTrains();
+            }
+        }
+    }
+}
+
+
+/* ******************** */
+/* DEBUG ONLY FUNCTIONS */
+/* ******************** */
+function DoPlay(testNum)
+{
+    let inputfromclient = '{"mode":"dynamic"}' ;
+
+    if ((testNum === undefined) || (testNum === null)) testNum = 0;
+
+    switch (testNum) {
+        case 0:
+            inputfromclient = null;
+            break;
+
+        case 1:
+            inputfromclient = '{"mode":"dynamic"}' ;
+            break;
+
+        case 2:
+            inputfromclient = '{"mode":"single"}' ;
+            break;
+
+        case 3:
+            inputfromclient = '{"mode":"static"}';
+            break;
+    }
+    play(inputfromclient);
+}
+
+
+// Invoke the stop process.
+function DoStop() {
+   stop();
+}
+
+
+// DoUpdate(integer: n) supports template testing with various pre-defined text strings. 
+// The valid values for n are set by the template designer in this function.
+// The function can be directly called from browser development tools console command line.
+function DoUpdate(capNum) {
+   let inputfromclient = '{"mode":"dynamic"}';
+
+   if ((capNum === undefined) || (capNum === null)) capNum = 0;
+
+    switch (capNum) {
+        case 0:  inputfromclient = null; break;
+        case 1:  inputfromclient = '{"mode":"dynamic"}'; break;
+        case 2:  inputfromclient = '{"mode":"single"}'; break;
+        case 3:  inputfromclient = '{"mode":"static"}'; break;
+        case 4:  inputfromclient = '{"startat":"14:15:23"}'; break;
+        case 5:  inputfromclient = '{"startat":"07:30"}'; break;
+        case 6:  inputfromclient = '{"startat":"off"}'; break;
+        case 7:  inputfromclient = '{"display":"edgware"}'; break;
+        case 8:  inputfromclient = '{"display":"barnet"}'; break;
+        case 9:  inputfromclient = '{"display":"charing cross"}'; break;
+        case 10: inputfromclient = '{"display":"bank"}'; break;
+        case 11: inputfromclient = '{"display":"all"}'; break;
+        case 12: inputfromclient = '{"usefont":"1"}'; break;
+        case 13: inputfromclient = '{"usefont":"2"}'; break;
+        case 14: inputfromclient = '{"usefont":"3"}'; break;
+        default: break;   
+    }
+   update(inputfromclient);
+}
+
+/* End of debug functions */
+</script>
+
+</head>
+    
+<body onload="init()">
+    <div id="fullscreen" class="backgroundbox baseFont01">
+        <div id="Locator" class="title">Camden Town Underground - Arrivals</div>
+        <div id="tod_clock" class="clocktime">--:--:--</div>
+        <div class="nw_title segTitleFont01"></div>
+        <div class="ne_title segTitleFont01"></div>
+        <div class="sw_title segTitleFont01"></div>
+        <div class="se_title segTitleFont01"></div>
+        <div class="status_headline_box">
+            <div id="status_id" class="status_id">Status:</div>
+            <div id="status_hl" class="status_hl"></div>
+        </div>
+        <div id="status_detail" class="status_information">- - -</div>
+        <div class="acknowledge">Live data provided by Transport for London Open API</div>
+        <div id="statusLog" class="logDisplay"></div>
+        <div class="nw_col_name_group columnLabels">
+            <div class="train_hl_01">Destination</div>
+            <div class="train_hl_02">ETA</div>
+            <div class="train_hl_03">Plat</div>
+            <div class="train_hl_04">Last reported position</div>
+        </div>
+        <div class="ne_col_name_group columnLabels">
+            <div class="train_hl_01">Destination</div>
+            <div class="train_hl_02">ETA</div>
+            <div class="train_hl_03">Plat</div>
+            <div class="train_hl_04">Last reported position</div>
+        </div>
+        <div class="sw_col_name_group columnLabels">
+            <div class="train_hl_01">Destination</div>
+            <div class="train_hl_02">ETA</div>
+            <div class="train_hl_03">Plat</div>
+            <div class="train_hl_04">Last reported position</div>
+        </div>
+        <div class="se_col_name_group columnLabels">
+            <div class="train_hl_01">Destination</div>
+            <div class="train_hl_02">ETA</div>
+            <div class="train_hl_03">Plat</div>
+            <div class="train_hl_04">Last reported position</div>
+        </div>
+        <div id="segment_0" class="seg0 seg_n_font">
+            <div class="row0">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row1">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row2">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row3">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row4">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+        </div>
+        <div id="segment_1" class="seg1 seg_n_font">
+            <div class="row0">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row1">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row2">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row3">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row4">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+        </div>
+        <div id="segment_2" class="seg2 seg_n_font">
+            <div class="row0">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row1">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row2">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row3">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row4">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+        </div>
+        <div id="segment_3" class="seg3 seg_n_font">
+            <div class="row0">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row1">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row2">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row3">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+            <div class="row4">
+                <div class="td_col0"></div><div class="td_col1"></div><div class="td_col2"></div><div class="td_col3"></div><div class="td_col4"></div>
+            </div>
+        </div>
+        <!-- The display area for a single destination display -->
+        <div id="panel1" class="panel1">
+            <div class="panel1title">Name of the displayed data goes here</div>
+            <div class="panel1ColumnLabel">
+                <div class="panel1_train_hl_01">Destination</div>
+                <div class="panel1_train_hl_02">ETA</div>
+                <div class="panel1_train_hl_03">Plat</div>
+                <div class="panel1_train_hl_04">Last reported position</div>
+            </div>
+            <div id="panel1_segment_0" class="panel1_seg0">
+                <div class="panel1_row0">
+                    <div class="panel1_td_col0"></div><div class="panel1_td_col1"></div><div class="panel1_td_col2"></div><div class="panel1_td_col3"></div><div class="panel1_td_col4"></div>
+                </div>
+                <div class="panel1_row1">
+                    <div class="panel1_td_col0"></div><div class="panel1_td_col1"></div><div class="panel1_td_col2"></div><div class="panel1_td_col3"></div><div class="panel1_td_col4"></div>
+                </div>
+                <div class="panel1_row2">
+                    <div class="panel1_td_col0"></div><div class="panel1_td_col1"></div><div class="panel1_td_col2"></div><div class="panel1_td_col3"></div><div class="panel1_td_col4"></div>
+                </div>
+                <div class="panel1_row3">
+                    <div class="panel1_td_col0"></div><div class="panel1_td_col1"></div><div class="panel1_td_col2"></div><div class="panel1_td_col3"></div><div class="panel1_td_col4"></div>
+                </div>
+                <div class="panel1_row4">
+                    <div class="panel1_td_col0"></div><div class="panel1_td_col1"></div><div class="panel1_td_col2"></div><div class="panel1_td_col3"></div><div class="panel1_td_col4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- The following div has the description of the template keys and supported values. Normally hidden. -->
+    <div id="keyValues" class="templateKeyValues">
+        <b><bigger>Template Keys</bigger></b>&nbsp;&nbsp;&nbsp;-&nbsp;key names shown in <k>yellow</k> accepted values shown in <v>green</v>
+        Key name: <k>mode</k><br><table>
+            <tr><td><v>dynamic</v></td><td>continual update of trains and status</td></tr>
+            <tr><td><v>single</v></td><td>get a snapshot of trains and status</td></tr>
+            <tr><td><v>static</v></td><td>uses fixed data set</td></tr>
+        </table>
+        Key name: <k>startat</k>
+        Offsets clock display in dynamic mode to run from provided hours minutes and seconds.
+        Formats are hh:mm:ss or hh:mm using 24 hour clock. Value <b>must</b> include leading zeros.<br><table>
+            <tr><td><v>14:30:30</v></td><td>Time counts from 14:30:30</td></tr>
+            <tr><td><v>08:20</v></td><td>Time counts from 08:20:00</td></tr>
+            <tr><td><v>off</v></td><td>Time-of-day clock time.</td></tr>
+        </table>
+        Key name: <k>display</k>
+        Sets the route information display layout:<br><table>
+                <tr><td><v>0</v> or <v>all</v></td><td>All four routes</td></tr>
+                <tr><td><v>1</v> or <v>Edgware</v></td><td>Trains towards Edgware</td></tr>
+                <tr><td><v>2</v> or <v>Barnet</v></td><td>Trains towards Barnet</td></tr>
+                <tr><td><v>3</v> or <v>Charing Cross</v></td><td>Southbound trains via Charing Cross</td></tr>
+                <tr><td><v>4</v> or <v>Bank</v></td><td>Southbound trains via Bank</td></tr>
+            </table>
+        Key name: <k>usefont</k>
+        Selects the display typeface used. At least three options are available:<br><table>
+                <tr><td><v>1</v></td><td>Arial</td></tr>
+                <tr><td><v>2</v></td><td>Dot Matrix Regular.ttf</td></tr>
+                <tr><td><v>3</v></td><td>London Underground Regular.ttf</td></tr>
+            </table>
+    </div>
+</body>
+
+</html>
