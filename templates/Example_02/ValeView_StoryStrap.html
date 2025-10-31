@@ -79,29 +79,45 @@
    The debug functions can be called when the template is used in a CasparCG server. They are
    activated by the Invoke mechanism (eg key F7 in standard client).
 
+   Changelog:
+   V1.0     Initial Release
+   V1.01    2025-10-31
+            Redefine typeface used on strap so it has same look and feel on 
+            Windows and Ubuntu 24 hosts.
 -->
 
 <style type="text/css">
 
-/* Define logical names for the typefaces used in the template */
+/* 
+   Define logical names for the typefaces used in the template. Include typefaces for 
+   Windows and Ubuntu host OS.
+*/
 @font-face {
    font-family: myName;
-   src: local('Times New Roman');
+   src: 
+      local('Times New Roman'),
+      local('Liberation Serif');
 }
 
 @font-face {
    font-family: myDesig;
-   src: local('Arial Italic');
+   src: 
+      local('Arial Italic'),
+      local('Liberation Sans Italic');
 }
 
 @font-face {
    font-family: myHash;
-   src: local('Arial');
+   src: 
+      local('Arial'),
+      local('Liberation Sans');
 }
 
 @font-face {
    font-family: myProps;
-   src: local('Arial');
+   src: 
+      local('Arial'),
+      local('Liberation Sans');
 }
 
 /* CSS variables to simplify modifying times and positions. Time values set by Javascript code */
