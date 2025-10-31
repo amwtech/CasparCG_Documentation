@@ -17,25 +17,44 @@
    <title>CasparCG Template - Example Static 01</title>
 
 <!--
-   This CasparCG HTML template was created by <enter name here>. Contact <Enter email here>
+   This CasparCG HTML template was created by <enter name here>. Contact <enter email here>
         
    Reason for template/programme applications etc.
 
    This template displays a lower third with just a name field and a designation
    field, both shown on top of a simple colour strap.
+
    Expected field names from CasparCG:
       f0      Name to display
       f1      Designation/Job Title
 
    The template accepts user parameters wrapped in either XML or JSON.   
+
+   Changelog:
+   V1.0     Initial Release
+   V1.01    2025-10-31
+            Redefine typeface used on strap so it has same look and feel on 
+            Windows and Ubuntu 24 hosts.
 -->
 
 <style type="text/css">
+/* 
+   Use a sans-serif font-face that has the same look on both a Windows host (Arial)
+   and an Ubuntu host (Liberation Sans). 
+*/
+@font-face {
+   font-family: "simplefont";
+   src:
+   local("Arial"),
+   local("Liberation Sans");
+}
+
 /*
    Define some "CSS Variables" values that may be needed in multiple CSS selectors. Embedded
    Chromium in CasparCG is a webkit based browser, so some selectors must be stated in standard
    and webkit format.
 */
+
 :root {
    --scrTop:0vh; --scrLeft:0vw; --scrWidth:100vw; --scrHeight:100vh;
    --gfxContentEdge:10vw; --gfxContentWidth:80vw;
@@ -58,11 +77,11 @@ html, body {
    -webkit-font-smoothing:antialiased !important;
 }
 
-/* Selectors used by template field names information overlay */
+/* Selectors used by template field names information overlay (when enabled) */
 .tkey { font-weight:bold; color:yellow; }
 .tmpltData {
    position: absolute; top: 0vh; height: 60vh; width: 100vw;
-   background-color: black; font-family: Arial, sans-serif;
+   background-color: black; font-family: simplefont;
    font-size: 4.44vh; color: white; white-space:pre;
 }
 
@@ -92,7 +111,7 @@ html, body {
 }
 
 .f0_font {
-   font-family: Arial; font-weight: bold;
+   font-family: simplefont; font-weight: bold;
    font-size: 4.6vh; font-kerning:normal; color:var(--nameColour);  
    white-space:pre; text-align: left;
     vertical-align: top;
@@ -104,7 +123,7 @@ html, body {
 }
 
 .f1_font {
-   font-family: Arial; font-weight:normal; font-style: italic;
+   font-family: simplefont; font-weight:normal; font-style: italic;
    font-size: 3.6vh; font-kerning:normal; color:var(--nameColour);  
    white-space:pre; text-align: left;
 }
