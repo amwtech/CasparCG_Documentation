@@ -130,8 +130,9 @@
     display     'all' | 'edgware' | 'barnet' | 'charing cross' | 'bank' | '0' | '1' | '2' | '3' | '4' 
 
     usefont     A number, minimum 1, used to select the typeface used in the display fields. The
-                standard distribution has three typefaces available - Arial, Dot Matrix Regular
-                and London Underground Regular. Adding further typefaces is a simple process.
+                standard distribution has three typefaces available - Arial (Windows host) or
+                Liberation Sans (Ubuntu host), Dot Matrix Regular and London Underground Regular. 
+                Adding further typefaces is a simple process.
 
     startat     '10:15:00' or '10:15' or 'off' 
                 Set the time of day displayed when the template or browser display starts. The 
@@ -264,18 +265,22 @@
 
     The data requests include a network time out of 15.5 seconds. If the request times out 
     the relevant flags are reset ready for the timer to issue a new poll request.
-    
+   
+    Changelog:
+   V1.0     Initial Release
+   V1.01    2025-10-31
+            Redefine typeface used on strap so it has same look and feel on 
+            Windows and Ubuntu 24 hosts.
 -->
 
 <style type="text/css">
 
 /* Provide @font-face definitions for all typefaces that we want to use */
-/* Always define a simple, local, fallback typeface.                    */
 @font-face {
     font-family: "Railway01";
         src: 
         local("Arial"),
-        local(sans-serif);
+        local("Liberation Sans");
     font-weight: normal; font-style: normal;
 }
 
@@ -283,7 +288,8 @@
     font-family: "Railway02";
         src: 
         url("Dot Matrix Regular.ttf"),
-        local("Times New Roman");
+        local("Times New Roman"),
+        local("Liberation Serif");
     font-weight: normal; font-style: normal;
 }
 
@@ -291,7 +297,16 @@
     font-family: "Railway03";
         src: 
         url("London Underground Regular.ttf"),
-        local("Times New Roman");
+        local("Times New Roman"),
+        local("Liberation Serif");
+    font-weight: normal; font-style: normal;
+}
+
+@font-face {
+    font-family: "Template_Keys";
+        src: 
+        local("Arial"),
+        local("Liberation Sans");
     font-weight: normal; font-style: normal;
 }
 
@@ -428,7 +443,7 @@ html, body {
 /* CSS definitions for the panel that displays key names and recognised values. */
 .templateKeyValues {
    position:absolute; top: 0px; height: 80vh; width: 80vw; background-color: black;
-   font-family: Arial, sans-serif; font-size: 2.4vh; white-space: pre; color: white;
+   font-family: Template_Keys, sans-serif; font-size: 2.4vh; white-space: pre; color: white;
    opacity: 0; visibility: hidden;
 }
 
@@ -439,7 +454,7 @@ k { font-weight: bold; color: yellow; }
 v { font-weight: bold; color: rgb(0, 230, 0); }
 
 table {
-    border-collapse: collapse; border: none; font-family: Arial, sans-serif; font-size: 2.4vh;
+    border-collapse: collapse; border: none; font-family: Template_Keys, sans-serif; font-size: 2.4vh;
 }
 
 th,td {
@@ -528,7 +543,7 @@ th,td {
 .logDisplay {
     /* Used for console log printout when only have access to CasparCG output on a monitor. */
     position: absolute; top: 1030px; left: 110px; width: 1690px; height:30px; line-height:20px;
-    font-family: Arial; font-size: 16px; text-align: left; color: red;
+    font-family: Template_Keys, sans-serif; font-size: 16px; text-align: left; color: red;
 }
 
 .columnLabels {
@@ -759,8 +774,8 @@ const baseFont03Sizes = [
 ];
 
 // baseFontSizeTable[] is an array of available typefaces. Index into table
-// to find display height properties. The rRequires embedded numbers start with 01
-// and increment by 1 per available typeface.
+// to find display height properties. The embedded numbers(XX on baseFontXXSizes) 
+// start with 01 and increment by 1 per available typeface.
 const baseFontSizeTable = [baseFont01Sizes, baseFont02Sizes, baseFont03Sizes];
 
 let casparcgTemplateMode = false;   // Set true if the update() function is called.
